@@ -9,14 +9,16 @@ vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
 vim.keymap.set('v', '<Tab>', '>gv')
 vim.keymap.set('v', '<S-Tab>', '<gv')
 
+-- With kommentary
+vim.keymap.set("n", "<C-/>", "<Plug>kommentary_line_default")
+
 vim.keymap.set("n", "J", "mzJ`z")
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 
-
--- greatest remap ever
+-- When delitting highligh it does not overwrite the yanked buffer
 vim.keymap.set("x", "<leader>p", [["_dP]], {desc = "Paste without yank"})
 
 -- next greatest remap ever : asbjornHaland
@@ -28,9 +30,10 @@ vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]], { desc = "Delete without yank
 -- This is going to get me cancelled
 vim.keymap.set("i", "<C-c>", "<Esc>")
 
+
 vim.keymap.set("n", "Q", "<nop>")
 -- vim.keymap.set("n", "<C-f>", "<cmd>silent !tmux neww tmux-sessionizer<CR>")
-vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
+vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, {desc = "LSP buffer format"})
 
 -- Quick fix navigation - quick fix list
 vim.keymap.set("n", "<C-k>", "<cmd>cnext<CR>zz")
@@ -42,6 +45,7 @@ vim.keymap.set("n", "<leader>s", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><
     { desc = "Global change word" })
 vim.keymap.set("n", "<leader>x", "<cmd>!chmod +x %<CR>", { silent = true })
 
+-- Load packer
 -- vim.keymap.set("n", "<leader>vpp", "<cmd>e ~/.dotfiles/nvim/.config/nvim/lua/theprimeagen/packer.lua<CR>");
 -- vim.keymap.set("n", "<leader>mr", "<cmd>CellularAutomaton make_it_rain<CR>");
 
@@ -52,6 +56,5 @@ vim.keymap.set("n", "<leader>|", vim.cmd.vsplit, { desc = "Vertical split" })
 -- Highlights in search
 vim.keymap.set("n", "<leader>h", vim.cmd.nohlsearch, { desc = "No highlight search" })
 
-vim.keymap.set("n", "<leader><leader>", function()
-    vim.cmd("so")
-end, { desc = "Shoutout file" })
+vim.keymap.set("n", "<leader><leader>", function() vim.cmd("so") end,
+    { desc = "Shoutout file" })

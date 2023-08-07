@@ -1,8 +1,10 @@
 -- vim.opt.guicursor = ""
 
+-- Numbering and relative numbers on lines
 vim.opt.nu = true
 vim.opt.relativenumber = true
 
+-- Tabs
 vim.opt.tabstop = 4
 vim.opt.softtabstop = 4
 vim.opt.shiftwidth = 4
@@ -12,6 +14,7 @@ vim.opt.smartindent = true
 
 -- vim.opt.wrap = false
 
+-- Access to long undo from days upon days ago
 vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.undodir = os.getenv("HOME") .. "/.vim/undodir"

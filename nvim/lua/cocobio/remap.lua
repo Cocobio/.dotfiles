@@ -1,6 +1,22 @@
+local api = require 'nvim-tree.api'
+
 vim.g.mapleader = " "
 -- vim.keymap.set("n", "<leader>pv", vim.cmd.Ex, { desc = "Project view" })
-vim.keymap.set("n", "<leader>pv", function () local api = require "nvim-tree.api"; api.tree.toggle() end, { desc = "Project view" })
+vim.keymap.set("n", "<leader>pv", function () api.tree.toggle() end,
+    { desc = "Project view" })
+vim.keymap.set("n", "<leader>pr",
+    function()
+        api.tree.close()
+        local file_path = vim.api.nvim_buf_get_name(0)
+        file_path = file_path:sub(0,file_path:match'^.*()/')
+        vim.cmd(":cd "..file_path)
+        api.tree.open()
+    end,
+{ desc = "Set Project at File" })
+vim.keymap.set("n", "<leader><Tab>", function () vim.cmd(':tabnext') end,
+    { desc = "Next nvim-tree tab." })
+vim.keymap.set("n", "<leader><S-Tab>", function () vim.cmd(':tabprev') end,
+    { desc = "Prev nvim-tree tab." })
 
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")

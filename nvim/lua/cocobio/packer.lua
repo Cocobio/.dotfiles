@@ -7,7 +7,7 @@ return require('packer').startup(function(use)
 	-- Packer can manage itself
 	use 'wbthomason/packer.nvim'
 
-	use {
+	 use {
 		'nvim-telescope/telescope.nvim', tag = '0.1.2',
 		-- or                            , branch = '0.1.x',
 		requires = { {'nvim-lua/plenary.nvim'} }
@@ -75,29 +75,48 @@ return require('packer').startup(function(use)
         config = function()
             require('dashboard').setup {
                 -- config
-                theme = 'doom',
+                theme = 'hyper',
+                disable_move = true,
                 config = {
-                    header = {"Header?"}, --your header
-                    center = {
-                        {
-                            icon = ' ',
-                            icon_hl = 'Title',
-                            desc = 'Find File           ',
-                            desc_hl = 'String',
-                            key = 'b',
-                            keymap = 'SPC f f',
-                            key_hl = 'Number',
-                            action = 'lua print(2)'
-                        },
-                        {
-                            icon = ' ',
-                            desc = 'Find Dotfiles',
-                            key = 'f',
-                            keymap = 'SPC f d',
-                            action = 'lua print(3)'
-                        },
+                    week_header = {
+                        enable = true,
                     },
-                    footer = {"Footer"}  --your footer
+                    shortcut = {
+                        { icon = '󰊳 ', icon_hl = "@variable", desc = 'Update', group = '@property',
+                            action = function ()
+                                vim.cmd(':so ~/.dotfiles/nvim/lua/cocobio/packer.lua')
+                                vim.cmd(':PackerSync')
+                            end,
+                            key = 'u'
+                        },
+                        {
+                            icon = ' ',
+                            icon_hl = '@variable',
+                            desc = 'Find Files',
+                            group = 'Label',
+                            action = 'Telescope find_files',
+                            key = 'f',
+                        },
+                        {
+                            desc = ' Open Browser',
+                            group = 'DiagnosticHint',
+                            action = function ()
+                                    local api = require'nvim-tree.api'
+                                    api.tree.open{current_window=true}
+                                end,
+                            key = 'e',
+                        },
+                        {
+                            desc = ' dotfiles',
+                            group = 'Number',
+                            action = function()
+                                    local api = require "nvim-tree.api"
+                                    vim.cmd(":cd ~/.dotfiles/")
+                                    api.tree.open{current_window=true}
+                                end,
+                            key = 'd',
+                        },
+                    }
                 }
             }
         end,

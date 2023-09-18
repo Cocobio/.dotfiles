@@ -14,6 +14,7 @@ local colors = {
     "noctis_obscuro",
     "rose-pine-moon",
     "rose-pine-main",
+    "oxocarbon",
 }
 
 function ColorMyPencils(color)

@@ -14,9 +14,13 @@ vim.keymap.set("n", "<leader>pr",
     end,
 { desc = "Set Project at File" })
 vim.keymap.set("n", "<leader><Tab>", function () vim.cmd(':tabnext') end,
-    { desc = "Next nvim-tree tab." })
+    { desc = "Next nvim tab." })
 vim.keymap.set("n", "<leader><S-Tab>", function () vim.cmd(':tabprev') end,
-    { desc = "Prev nvim-tree tab." })
+    { desc = "Prev nvim tab." })
+vim.keymap.set("n", "<leader>tn", function () vim.cmd(':tabnew') end,
+    { desc = "New nvim tab." })
+vim.keymap.set("n", "<leader>tq", function () vim.cmd(':tabclose') end,
+    { desc = "Close nvim tab." })
 
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")

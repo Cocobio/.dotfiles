@@ -126,8 +126,8 @@ return require('packer').startup(function(use)
                 }
             }
         }
-    end,
-    requires = {'nvim-tree/nvim-web-devicons'}
+        end,
+        requires = {'nvim-tree/nvim-web-devicons'}
     }
 
     use {

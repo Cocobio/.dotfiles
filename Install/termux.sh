@@ -1,10 +1,11 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 pkg update
 pkg upgrade
 
 # Give termux access to files
-termux-setup-storage
+cd
+[ ! -d "storage" ] && termux-setup-storage
 
 pkg install git
 
@@ -48,8 +49,12 @@ rm -rf tmp
 #-------------------------------------#
 #            Setup neovim
 #-------------------------------------#
-pkg install neovim
+# Install only if not already install
+[ ! -x "$(command -v nvim)" ] && pkg install neovim
+
 cd
+[! -d ".config" ] && mkdir .config
+
 if [ ! -d ".local/share/nvim/site/pack/packer/start/packer.nvim" ]
 then
     git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim
@@ -79,7 +84,12 @@ nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User P
 #-------------------------------------#
 pkg install python3
 pkg install python-numpy
+pkg install patchelf
 pkg install matplotlib
+pkg install tur-repo
+pkg install python-scipy
+pkg install python-pandas
+pkg install opencv-python
 
 # nvim --headless -c 'CocInstall coc-pyright'
 #-------------------------------------#
@@ -92,12 +102,8 @@ pkg install matplotlib
 cd
 echo "Creating symlinks, aliases, etc"
 
-[ ! -f ".bashrc" ] touch .bashrc
+[ ! -f ".bashrc" ] && touch .bashrc
 echo "source ~/.dotfiles/.bashrc.alias" >> .bashrc
+
+source .bashrc
 #-------------------------------------#
-
-
-
-
-
-

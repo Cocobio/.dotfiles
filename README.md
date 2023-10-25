@@ -5,6 +5,6 @@ creating a symbolic link at .config/nvim to the nvim directory.
 
 ## Termux Installation
 ```shell
-pkg install wget && https://github.com/Cocobio/.dotfiles/raw/main/Instalations/termux.sh\
-    && bash termux.sh && rm termux.sh
+git clone https://github.com/Cocobio/.dotfiles.git && \
+bash .dotfiles/Installations/termux.sh
 ```

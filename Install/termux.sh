@@ -7,7 +7,7 @@ pkg upgrade
 cd
 [ ! -d "storage" ] && termux-setup-storage
 
-pkg install git
+pkg install git -y
 
 #-------------------------------------#
 #           Create dotfiles
@@ -25,11 +25,10 @@ else
 fi
 #-------------------------------------#
 
-pkg install openssh
-pkg install tmux
-pkg install wget
-pkg install ninja
-pkg install lua54
+pkg install openssh -y
+pkg install tmux -y
+pkg install wget -y
+pkg install ninja -y
 
 
 apt-get install llvm
@@ -50,7 +49,7 @@ rm -rf tmp
 #            Setup neovim
 #-------------------------------------#
 # Install only if not already install
-[ ! -x "$(command -v nvim)" ] && pkg install neovim
+[ ! -x "$(command -v nvim)" ] && pkg install neovim -y
 
 cd
 [! -d ".config" ] && mkdir .config
@@ -70,6 +69,9 @@ else
 fi
 ln -s ~/.dotfiles/nvim/ ~/.config/nvim
 
+# Install language servers
+pkg install lua-language-server -y
+
 # Install plugins
 nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
 #-------------------------------------#
@@ -80,18 +82,40 @@ nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User P
 
 
 #-------------------------------------#
-#    Setup of Python Dev enviroment
+#    Setup of Dev enviroment
 #-------------------------------------#
-pkg install python3
-pkg install python-numpy
-pkg install patchelf
-pkg install matplotlib
-pkg install tur-repo
-pkg install python-scipy
-pkg install python-pandas
-pkg install opencv-python
+# Python
+# Install python and packages
+pkg install python3 -y
+pkg install python-numpy -y
+pkg install patchelf -y
+pkg install matplotlib -y
+pkg install tur-repo -y
+pkg install python-scipy -y
+pkg install python-pandas -y
+pkg install opencv-python -y
+
+# Install pyright
+pkg install nodejs -y
+nvim --headless +"MasonInstall pyright" +qall
 
 # nvim --headless -c 'CocInstall coc-pyright'
+
+# Lisp
+pkg install ecl -y
+
+# Haskell
+# pkg install getconf -y
+# curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+# No language server T.T
+pkg install ghc -y
+
+
+# Lua 5.4
+pkg install lua54 -y
+
+# Bash language server
+nvim --headless +"MasonInstall bash-language-server" +qall
 #-------------------------------------#
 
 

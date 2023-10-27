@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# update & upgrade the pkg manager
 pkg update
 pkg upgrade
 
@@ -7,10 +8,24 @@ pkg upgrade
 cd
 [ ! -d "storage" ] && termux-setup-storage
 
-pkg install git -y
 
 #-------------------------------------#
-#           Create dotfiles
+#       Install necessary pkgs
+#-------------------------------------#
+pkg install git -y
+pkg install openssh -y
+pkg install tmux -y
+pkg install wget -y
+pkg install ninja -y
+pkg install htop -y
+
+
+apt-get install llvm
+#-------------------------------------#
+
+
+#-------------------------------------#
+#       Clone or update dotfiles
 #-------------------------------------#
 echo "Configuring .dotfiles!"
 
@@ -25,13 +40,6 @@ else
 fi
 #-------------------------------------#
 
-pkg install openssh -y
-pkg install tmux -y
-pkg install wget -y
-pkg install ninja -y
-
-
-apt-get install llvm
 
 #-------------------------------------#
 #     Setup of MonoSize Nerd Font
@@ -44,6 +52,7 @@ cp CaskaydiaCoveNerdFont-Regular.ttf ~/.termux/font.ttf
 cd
 rm -rf tmp
 #-------------------------------------#
+
 
 #-------------------------------------#
 #            Setup neovim
@@ -119,15 +128,20 @@ nvim --headless +"MasonInstall bash-language-server" +qall
 #-------------------------------------#
 
 
-
 #-------------------------------------#
 #       Creation of symlinks
 #-------------------------------------#
 cd
 echo "Creating symlinks, aliases, etc"
 
+# Tmux
+[ ! -f ".tmux.conf" ] && ln -s .dotfiles/.tmux.conf .tmux.conf
+
+# Working on bash and zsh
 [ ! -f ".bashrc" ] && touch .bashrc
 echo "source ~/.dotfiles/.bashrc.alias" >> .bashrc
 
 source .bashrc
 #-------------------------------------#
+
+termux-reload-settings

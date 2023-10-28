@@ -1,33 +1,29 @@
 #!/usr/bin/env bash
 
 # update & upgrade the pkg manager
-pkg update
+pkg update -y
 pkg upgrade
 
 # Give termux access to files
-cd
 [ ! -d "storage" ] && termux-setup-storage
 
 
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-pkg install git -y
-pkg install openssh -y
-pkg install tmux -y
-pkg install wget -y
-pkg install ninja -y
-pkg install htop -y
+local packages="git openssh tmux wget ninja htop zsh"
 
+for package in $packages; do
+    pkg install $package -y
+done
 
 apt-get install llvm
-#-------------------------------------#
-
 
 #-------------------------------------#
 #       Clone or update dotfiles
 #-------------------------------------#
 echo "Configuring .dotfiles!"
+sleep 3
 
 cd
 if [ ! -d ".dotfiles" ]
@@ -38,8 +34,6 @@ else
     git pull origin
     cd
 fi
-#-------------------------------------#
-
 
 #-------------------------------------#
 #     Setup of MonoSize Nerd Font
@@ -51,8 +45,6 @@ unzip CascadiaCode.zip
 cp CaskaydiaCoveNerdFont-Regular.ttf ~/.termux/font.ttf
 cd
 rm -rf tmp
-#-------------------------------------#
-
 
 #-------------------------------------#
 #            Setup neovim
@@ -63,8 +55,7 @@ rm -rf tmp
 cd
 [! -d ".config" ] && mkdir .config
 
-if [ ! -d ".local/share/nvim/site/pack/packer/start/packer.nvim" ]
-then
+if [ ! -d ".local/share/nvim/site/pack/packer/start/packer.nvim" ]; then
     git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim
 fi
 
@@ -76,39 +67,26 @@ elif [ ! -L ".config/nvim" ]; then
 else
     echo "Renewing the existing symbolic link to nvim config..."
 fi
+sleep 3
 ln -s ~/.dotfiles/nvim/ ~/.config/nvim
-
-# Install language servers
-pkg install lua-language-server -y
 
 # Install plugins
 nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
-#-------------------------------------#
 
-
-
-# local package = (python3, )
-
+# Making neovim default code editor
+ln -s /data/data/com.termux/files/usr/bin/nvim ~/bin/termux-file-editor
 
 #-------------------------------------#
 #    Setup of Dev enviroment
 #-------------------------------------#
-# Python
 # Install python and packages
-pkg install python3 -y
-pkg install python-numpy -y
-pkg install patchelf -y
-pkg install matplotlib -y
-pkg install tur-repo -y
-pkg install python-scipy -y
-pkg install python-pandas -y
-pkg install opencv-python -y
+python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs"
+for py_package in $python_packages; do
+    pkg install $py_package -y
+done
 
-# Install pyright
-pkg install nodejs -y
+# Install pyright ls
 nvim --headless +"MasonInstall pyright" +qall
-
-# nvim --headless -c 'CocInstall coc-pyright'
 
 # Lisp
 pkg install ecl -y
@@ -117,31 +95,36 @@ pkg install ecl -y
 # pkg install getconf -y
 # curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 # No language server T.T
-pkg install ghc -y
-
+# pkg install ghc -y
 
 # Lua 5.4
 pkg install lua54 -y
+pkg install lua-language-server -y
 
 # Bash language server
 nvim --headless +"MasonInstall bash-language-server" +qall
-#-------------------------------------#
-
 
 #-------------------------------------#
 #       Creation of symlinks
 #-------------------------------------#
 cd
 echo "Creating symlinks, aliases, etc"
+sleep 3
 
 # Tmux
-[ ! -f ".tmux.conf" ] && ln -s .dotfiles/.tmux.conf .tmux.conf
+[ -f ".tmux.conf" ] && echo "tmux.conf found, renaming" && mv .tmux.conf .tmux.conf-old
+ln -s .dotfiles/.tmux.conf .tmux.conf
 
-# Working on bash and zsh
-[ ! -f ".bashrc" ] && touch .bashrc
-echo "source ~/.dotfiles/.bashrc.alias" >> .bashrc
+[ -f ".zshrc" ] && echo "zshrc found, renaming." && mv .zshrc .zshrc-old
+ln -s .dotfiles/.zshrc .zshrc
 
-source .bashrc
 #-------------------------------------#
+#       Graphical interface
+#-------------------------------------#
+pkg install tigervnc -y
+#-------------------------------------#
+
+# Zsh as default
+chsh -s zsh
 
 termux-reload-settings

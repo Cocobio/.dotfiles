@@ -1,0 +1,13 @@
+# vnc functions
+# https://wiki.termux.com/wiki/Graphical_Environment
+declare -i vnc-count=0
+
+function start-vnc {
+    [ $count -eq 0 ] && count=$count+1 && vncserver -localhost
+}
+
+function kill-vnc {
+    [ $count -eq 1 ] && count=0 && vncserver -kill :1
+    # rm -rf /tmp/.X1-lock
+    # rm -rf /tmp/.X11-unix/X1
+}

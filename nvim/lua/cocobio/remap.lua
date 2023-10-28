@@ -1,5 +1,7 @@
 local api = require 'nvim-tree.api'
 
+vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', {noremap = true})
+
 vim.g.mapleader = " "
 -- vim.keymap.set("n", "<leader>pv", vim.cmd.Ex, { desc = "Project view" })
 vim.keymap.set("n", "<leader>pv", function () api.tree.toggle() end,

@@ -1,0 +1,3 @@
+# tigervnc display selection
+export DISPLAY=":1"
+

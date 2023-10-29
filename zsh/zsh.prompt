@@ -1,0 +1,2 @@
+PROMPT="%F{green}%1~ 󰛂 %f"
+# '${$((my_git_formatter()))+${my_git_format}}'

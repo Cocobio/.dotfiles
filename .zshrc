@@ -1,5 +1,6 @@
 export EDITOR=nvim
 
-source "~/.dotfiles/zsh/zshrc.alias"
-source "~/.dotfiles/zsh/zshrc.prompt"
-source "~/.dotfiles/zsh/zshrc.utils"
+source ~/.dotfiles/zsh/zsh.export
+source ~/.dotfiles/zsh/zsh.alias
+source ~/.dotfiles/zsh/zsh.prompt
+source ~/.dotfiles/zsh/zsh.utils

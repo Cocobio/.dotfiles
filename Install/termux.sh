@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # update & upgrade the pkg manager
 pkg update -y
-pkg upgrade
+pkg upgrade -y
 
 # Give termux access to files
 [ ! -d "storage" ] && termux-setup-storage
@@ -37,6 +37,7 @@ fi
 
 #-------------------------------------#
 #     Setup of MonoSize Nerd Font
+#     and Catpuccino Color Theme
 #-------------------------------------#
 mkdir ~/tmp
 cd ~/tmp
@@ -45,6 +46,7 @@ unzip CascadiaCode.zip
 cp CaskaydiaCoveNerdFont-Regular.ttf ~/.termux/font.ttf
 cd
 rm -rf tmp
+cp ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties
 
 #-------------------------------------#
 #            Setup neovim
@@ -53,7 +55,7 @@ rm -rf tmp
 [ ! -x "$(command -v nvim)" ] && pkg install neovim -y
 
 cd
-[! -d ".config" ] && mkdir .config
+[ ! -d ".config" ] && echo "Creating .config" && mkdir .config
 
 if [ ! -d ".local/share/nvim/site/pack/packer/start/packer.nvim" ]; then
     git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim
@@ -63,9 +65,10 @@ if [ ! -d ".config/nvim" ]; then
     echo "Creating symbolic link to nvim config..."
 elif [ ! -L ".config/nvim" ]; then
     echo "Renaming current nvim config..."
-    mv ./config/nvim ./config/nvim_old
+    mv ~/.config/nvim ~/.config/nvim_old
 else
     echo "Renewing the existing symbolic link to nvim config..."
+    rm ~/.config/nvim
 fi
 sleep 3
 ln -s ~/.dotfiles/nvim/ ~/.config/nvim
@@ -74,7 +77,7 @@ ln -s ~/.dotfiles/nvim/ ~/.config/nvim
 nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
 
 # Making neovim default code editor
-ln -s /data/data/com.termux/files/usr/bin/nvim ~/bin/termux-file-editor
+# ln -s /data/data/com.termux/files/usr/bin/nvim ~/bin/termux-file-editor
 
 #-------------------------------------#
 #    Setup of Dev enviroment
@@ -121,6 +124,7 @@ ln -s .dotfiles/.zshrc .zshrc
 #-------------------------------------#
 #       Graphical interface
 #-------------------------------------#
+pkg install x11-repo -y
 pkg install tigervnc -y
 #-------------------------------------#
 

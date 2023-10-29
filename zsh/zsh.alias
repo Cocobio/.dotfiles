@@ -1,0 +1,18 @@
+# Aliases
+alias v="nvim -o"
+alias py="python3"
+
+alias ..="cd .."
+alias ll="ls --group-directories-first -g --human-readable -L -o"
+
+# Security
+alias cp="cp -i"
+alias mv="mv -i"
+alias rm="rm -i"
+
+# Easier to read disk
+alias df="df -h"
+alias free="free -m"
+
+# alias disk0="cd ~/storage/shared/"
+

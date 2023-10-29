@@ -43,7 +43,7 @@ mkdir ~/tmp
 cd ~/tmp
 wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/CascadiaCode.zip
 unzip CascadiaCode.zip
-cp CaskaydiaCoveNerdFont-Regular.ttf ~/.termux/font.ttf
+cp CaskaydiaCoveNerdFontMono-Regular.ttf ~/.termux/font.ttf
 cd
 rm -rf tmp
 cp ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties

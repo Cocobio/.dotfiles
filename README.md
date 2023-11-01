@@ -5,5 +5,5 @@ creating a symbolic link at .config/nvim to the nvim directory.
 
 ## Termux Installation
 ```shell
-curl --fail -LSs https://github.com/Cocobio/.dotfiles/raw/main/Install/termux.sh
+curl --fail -LSs https://github.com/Cocobio/.dotfiles/raw/main/Install/termux.sh | bash
 ```

@@ -1,28 +1,35 @@
 local api = require 'nvim-tree.api'
 
-vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', {noremap = true})
+-- Nice command line :)
+vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', { noremap = true })
+
+-- Mapping ctrl-s as saving (updating) file
+vim.keymap.set("n", "<leader><C-s>", vim.cmd.update, { desc = "Save current file" })
 
 vim.g.mapleader = " "
--- vim.keymap.set("n", "<leader>pv", vim.cmd.Ex, { desc = "Project view" })
-vim.keymap.set("n", "<leader>pv", function () api.tree.toggle() end,
+vim.keymap.set("n", "<leader>pv", function() api.tree.toggle() end,
     { desc = "Project view" })
 vim.keymap.set("n", "<leader>pr",
     function()
         api.tree.close()
         local file_path = vim.api.nvim_buf_get_name(0)
-        file_path = file_path:sub(0,file_path:match'^.*()/')
-        vim.cmd(":cd "..file_path)
+        file_path = file_path:sub(0, file_path:match '^.*()/')
+        vim.cmd(":cd " .. file_path)
         api.tree.open()
     end,
-{ desc = "Set Project at File" })
-vim.keymap.set("n", "<leader><Tab>", function () vim.cmd(':tabnext') end,
-    { desc = "Next nvim tab." })
-vim.keymap.set("n", "<leader><S-Tab>", function () vim.cmd(':tabprev') end,
-    { desc = "Prev nvim tab." })
-vim.keymap.set("n", "<leader>tn", function () vim.cmd(':tabnew') end,
-    { desc = "New nvim tab." })
-vim.keymap.set("n", "<leader>tq", function () vim.cmd(':tabclose') end,
-    { desc = "Close nvim tab." })
+    { desc = "Set Project at File" })
+
+-- Moving through nvim windows
+vim.keymap.set("n", "<C-h>", function() vim.cmd(":wincmd h") end )
+vim.keymap.set("n", "<C-j>", function() vim.cmd(":wincmd j") end)
+vim.keymap.set("n", "<C-k>", function() vim.cmd(":wincmd k") end)
+vim.keymap.set("n", "<C-l>", function() vim.cmd(":wincmd l") end)
+
+-- Mapping tab manipullation
+vim.keymap.set("n", "<leader><Tab>", vim.cmd.tabnext, { desc = "Next nvim tab." })
+vim.keymap.set("n", "<leader><S-Tab>", vim.cmd.tabprev, { desc = "Prev nvim tab." })
+vim.keymap.set("n", "<leader>tn", vim.cmd.tabnew, { desc = "New nvim tab." })
+vim.keymap.set("n", "<leader>tq", vim.cmd.tabclose, { desc = "Close nvim tab." })
 
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
 vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
@@ -34,6 +41,8 @@ vim.keymap.set("v", "<S-Tab>", "<gv")
 
 -- With kommentary
 vim.keymap.set("n", "<C-/>", "<Plug>kommentary_line_default")
+vim.keymap.set("n", "<C-_>", "<Plug>kommentary_line_default")
+-- vim.keymap.set("")
 
 vim.keymap.set("n", "J", "mzJ`z")
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
@@ -42,7 +51,7 @@ vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 
 -- When delitting highligh it does not overwrite the yanked buffer
-vim.keymap.set("x", "<leader>p", [["_dP]], {desc = "Paste without yank"})
+vim.keymap.set("x", "<leader>p", [["_dP]], { desc = "Paste without yank" })
 
 -- system clipboard yank
 vim.keymap.set("n", "<leader>y", "\"+y")
@@ -78,5 +87,4 @@ vim.keymap.set("n", "<leader>|", vim.cmd.vsplit, { desc = "Vertical split" })
 -- Highlights in search
 vim.keymap.set("n", "<leader>h", vim.cmd.nohlsearch, { desc = "No highlight search" })
 
-vim.keymap.set("n", "<leader><leader>", function() vim.cmd("so") end,
-    { desc = "Shoutout file" })
+vim.keymap.set("n", "<leader><leader>", vim.cmd.so, { desc = "Shoutout file" })

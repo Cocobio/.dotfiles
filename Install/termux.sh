@@ -11,7 +11,7 @@ pkg upgrade -y
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-local packages="git openssh tmux wget ninja htop zsh"
+local packages="git openssh tmux wget ninja htop zsh unrar man termux-api"
 
 for package in $packages; do
     pkg install $package -y

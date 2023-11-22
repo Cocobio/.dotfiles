@@ -4,7 +4,7 @@ local api = require 'nvim-tree.api'
 vim.api.nvim_set_keymap('n', ':', '<cmd>FineCmdline<CR>', { noremap = true })
 
 -- Mapping ctrl-s as saving (updating) file
-vim.keymap.set("n", "<leader><C-s>", vim.cmd.update, { desc = "Save current file" })
+vim.keymap.set("n", "<C-s>", vim.cmd.update, { desc = "Save current file" })
 
 vim.g.mapleader = " "
 vim.keymap.set("n", "<leader>pv", function() api.tree.toggle() end,
@@ -20,7 +20,7 @@ vim.keymap.set("n", "<leader>pr",
     { desc = "Set Project at File" })
 
 -- Moving through nvim windows
-vim.keymap.set("n", "<C-h>", function() vim.cmd(":wincmd h") end )
+vim.keymap.set("n", "<C-h>", function() vim.cmd(":wincmd h") end)
 vim.keymap.set("n", "<C-j>", function() vim.cmd(":wincmd j") end)
 vim.keymap.set("n", "<C-k>", function() vim.cmd(":wincmd k") end)
 vim.keymap.set("n", "<C-l>", function() vim.cmd(":wincmd l") end)
@@ -41,7 +41,9 @@ vim.keymap.set("v", "<S-Tab>", "<gv")
 
 -- With kommentary
 vim.keymap.set("n", "<C-/>", "<Plug>kommentary_line_default")
+vim.keymap.set("v", "<C-/>", "<Plug>kommentary_visual_default<C-c>")
 vim.keymap.set("n", "<C-_>", "<Plug>kommentary_line_default")
+vim.keymap.set("v", "<C-_>", "<Plug>kommentary_visual_default<C-c>")
 -- vim.keymap.set("")
 
 vim.keymap.set("n", "J", "mzJ`z")
@@ -68,8 +70,8 @@ vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = "LSP buffer format" })
 
 -- Not quite sure yet...
-vim.keymap.set("n", "<C-k>", "<cmd>cnext<CR>zz")
-vim.keymap.set("n", "<C-j>", "<cmd>cprev<CR>zz")
+--[[ vim.keymap.set("n", "<c-k>", "<cmd>cnext<cr>zz")
+vim.keymap.set("n", "<c-j>", "<cmd>cprev<cr>zz") ]]
 vim.keymap.set("n", "<leader>k", "<cmd>lnext<CR>zz")
 vim.keymap.set("n", "<leader>j", "<cmd>lprev<CR>zz")
 

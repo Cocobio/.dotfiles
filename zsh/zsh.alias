@@ -14,5 +14,8 @@ alias rm="rm -i"
 alias df="df -h"
 alias free="free -m"
 
+# Asciinema Gif Generator alias
+alias agg='agg --font-dir "~/.local/share/fonts/" --font-family "CaskaydiaCove NFM"'
+
 # alias disk0="cd ~/storage/shared/"
 

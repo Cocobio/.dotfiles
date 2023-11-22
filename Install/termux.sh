@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # update & upgrade the pkg manager
+termux-change-repo
 pkg update -y
 pkg upgrade -y
 
@@ -11,7 +12,7 @@ pkg upgrade -y
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-local packages="git openssh tmux wget ninja htop zsh unrar man termux-api"
+local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api"
 
 for package in $packages; do
     pkg install $package -y
@@ -36,17 +37,24 @@ else
 fi
 
 #-------------------------------------#
+#     Asciinema and Asciinema gif
+#            generator
+#-------------------------------------#
+mkdir -p ~/.local/share/fonts
+cd ~/.local/share/fonts
+wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/CascadiaCode.zip
+unzip CascadiaCode.zip
+rm CascadiaCode.zip LICENSE readme.md
+
+pkg install asciinema -y
+pkg install agg -y
+
+#-------------------------------------#
 #     Setup of MonoSize Nerd Font
 #     and Catpuccino Color Theme
 #-------------------------------------#
-mkdir ~/tmp
-cd ~/tmp
-wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/CascadiaCode.zip
-unzip CascadiaCode.zip
-cp CaskaydiaCoveNerdFontMono-Regular.ttf ~/.termux/font.ttf
-cd
-rm -rf tmp
-cp ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties
+ln -s ~/.local/share/fonts/CaskaydiaCoveNerdFontMono-Regular.ttf ~/.termux/font.ttf
+ln -s ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties
 
 #-------------------------------------#
 #            Setup neovim
@@ -83,7 +91,7 @@ nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User P
 #    Setup of Dev enviroment
 #-------------------------------------#
 # Install python and packages
-python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs"
+python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs python-pygame"
 for py_package in $python_packages; do
     pkg install $py_package -y
 done
@@ -106,6 +114,17 @@ pkg install lua-language-server -y
 
 # Bash language server
 nvim --headless +"MasonInstall bash-language-server" +qall
+
+#-------------------------------------#
+#         Tmux & plugins
+#-------------------------------------#
+pkg install tmux -y
+mkdir -p ~/.tmux/plugins
+
+git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+git clone https://github.com/tmux-plugins/tmux-sensible ~/.tmux/plugins/tmux-sensible
+git clone https://github.com/tmux-plugins/tmux-resurrect ~/.tmux/plugins/tmux-resurrect
+git clone https://github.com/tmux-plugins/tmux-continuum ~/.tmux/plugins/tmux-continuum
 
 #-------------------------------------#
 #       Creation of symlinks

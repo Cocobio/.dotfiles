@@ -150,4 +150,7 @@ return require('packer').startup(function(use)
             {'MunifTanjim/nui.nvim'}
         }
     }
+
+    -- For autosave of nvim sessions :)
+    use 'tpope/vim-obsession'
 end)

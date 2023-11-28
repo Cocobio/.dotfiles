@@ -91,7 +91,7 @@ nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User P
 #    Setup of Dev enviroment
 #-------------------------------------#
 # Install python and packages
-python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs python-pygame"
+python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs python-pygame python-cryptography"
 for py_package in $python_packages; do
     pkg install $py_package -y
 done
@@ -114,6 +114,11 @@ pkg install lua-language-server -y
 
 # Bash language server
 nvim --headless +"MasonInstall bash-language-server" +qall
+
+# ESPTool & Rust
+pkg install rust -y
+pkg install rust-analyzer -y
+pip install esptool
 
 #-------------------------------------#
 #         Tmux & plugins

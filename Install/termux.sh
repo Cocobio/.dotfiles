@@ -12,7 +12,7 @@ pkg upgrade -y
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api"
+local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf"
 
 for package in $packages; do
     pkg install $package -y
@@ -154,5 +154,10 @@ pkg install tigervnc -y
 
 # Zsh as default
 chsh -s zsh
+cd
+mkdir -p .zsh/plugins
+cd .zsh/plugins
+git clone https://github.com/zsh-users/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
 
 termux-reload-settings

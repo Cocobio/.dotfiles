@@ -70,8 +70,8 @@ vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = "LSP buffer format" })
 
 -- Not quite sure yet...
---[[ vim.keymap.set("n", "<c-k>", "<cmd>cnext<cr>zz")
-vim.keymap.set("n", "<c-j>", "<cmd>cprev<cr>zz") ]]
+--[[ vim.keymap.set("n", "<c-K>", "<cmd>cnext<cr>zz")
+vim.keymap.set("n", "<c-J>", "<cmd>cprev<cr>zz") ]]
 vim.keymap.set("n", "<leader>k", "<cmd>lnext<CR>zz")
 vim.keymap.set("n", "<leader>j", "<cmd>lprev<CR>zz")
 

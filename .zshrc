@@ -34,5 +34,8 @@ source ~/.dotfiles/zsh/zsh.alias
 source ~/.dotfiles/zsh/zsh.prompt
 source ~/.dotfiles/zsh/zsh.utils
 
+# Config for zsh-completions
+fpath=("/data/data/com.termux/files/home/.zsh/plugins/zsh-completions" $fpath)
+
 source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh

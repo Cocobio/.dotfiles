@@ -12,6 +12,12 @@ function kill-vnc {
     # rm -rf /tmp/.X11-unix/X1
 }
 
+# termux change of themos
+function set-theme {
+    file=`ls ~/.dotfiles/Termux/themes/ | fzf`
+    [[ -z "$file" ]] || ln -s ~/.dotfiles/Termux/themes/$file ~/.termux/colors.properties -f && termux-reload-settings
+}
+
 # Use lf to switch directories and bind it to ctrl-o
 lfcd () {
     tmp="$(mktemp)"

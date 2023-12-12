@@ -18,4 +18,3 @@ alias free="free -m"
 alias agg='agg --font-dir "~/.local/share/fonts/" --font-family "CaskaydiaCove NFM"'
 
 # alias disk0="cd ~/storage/shared/"
-

@@ -17,4 +17,6 @@ alias free="free -m"
 # Asciinema Gif Generator alias
 alias agg='agg --font-dir "~/.local/share/fonts/" --font-family "CaskaydiaCove NFM"'
 
+# Termux rvnc launcher
+alias rvnc='am start --user 0 -n com.realvnc.viewer.android/.app.ConnectionChooserActivity'
 # alias disk0="cd ~/storage/shared/"

@@ -3,7 +3,9 @@ alias v="nvim -o"
 alias py="python3"
 
 alias ..="cd .."
-alias ll="ls --group-directories-first -g --human-readable -L -o"
+# alias ll="ls --group-directories-first -g --human-readable -L -o"
+alias ll="eza -l --icons --group-directories-first --no-user --no-permissions --no-filesize --no-time"
+alias ls="eza --icons --group-directories-first"
 
 # Security
 alias cp="cp -i"

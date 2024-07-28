@@ -56,6 +56,11 @@ pkg install agg -y
 ln -s ~/.local/share/fonts/CaskaydiaCoveNerdFontMono-Regular.ttf ~/.termux/font.ttf
 ln -s ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties
 
+# Setup of bat colors
+mkdir -p "$(bat --config-dir)/themes"
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
+bat cache --build
+
 #-------------------------------------#
 #            Setup neovim
 #-------------------------------------#

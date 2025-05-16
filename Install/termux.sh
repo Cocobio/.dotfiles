@@ -12,7 +12,7 @@ pkg upgrade -y
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf libusb eza bat"
+local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf libusb eza bat tree tectonic"
 
 for package in $packages; do
     pkg install $package -y

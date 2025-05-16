@@ -10,7 +10,7 @@ return require('packer').startup(function(use)
     use {
         'nvim-telescope/telescope.nvim', tag = '0.1.2',
         -- or                            , branch = '0.1.x',
-        requires = { {'nvim-lua/plenary.nvim'} }
+        requires = { { 'nvim-lua/plenary.nvim' } }
     }
 
     -- Colorschemes!
@@ -22,17 +22,17 @@ return require('packer').startup(function(use)
     use { 'rose-pine/neovim', as = 'rose-pine', }
     use { 'nyoom-engineering/oxocarbon.nvim' }
 
-    use( 'nvim-treesitter/nvim-treesitter', {run = ':TSUpdate'} )
-    use( 'nvim-treesitter/playground' )
+    use('nvim-treesitter/nvim-treesitter', { run = ':TSUpdate' })
+    use('nvim-treesitter/playground')
 
-    use( 'theprimeagen/harpoon' )
+    use('theprimeagen/harpoon')
 
-    use( 'mbbill/undotree' )
-    use( 'tpope/vim-fugitive' )
+    use('mbbill/undotree')
+    use('tpope/vim-fugitive')
 
-    use( 'b3nj5m1n/kommentary' )
+    use('b3nj5m1n/kommentary')
 
-    use( 'm4xshen/autoclose.nvim' )
+    use('m4xshen/autoclose.nvim')
 
     use {
         "folke/which-key.nvim",
@@ -44,7 +44,8 @@ return require('packer').startup(function(use)
                 -- or leave it empty to use the default settings
                 -- refer to the configuration section below
             }
-        end
+        end,
+        requires = { 'echasnovski/mini.icons' }
     }
 
     use {
@@ -52,19 +53,19 @@ return require('packer').startup(function(use)
         branch = 'v2.x',
         requires = {
             -- LSP Support
-            {'neovim/nvim-lspconfig'},             -- Required
-            {                                      -- Optional
-            'williamboman/mason.nvim',
-            run = function()
-                pcall(vim.api.nvim_command, 'MasonUpdate')
+            { 'neovim/nvim-lspconfig' }, -- Required
+            {                          -- Optional
+                'williamboman/mason.nvim',
+                run = function()
+                    pcall(vim.api.nvim_command, 'MasonUpdate')
                 end,
             },
-            {'williamboman/mason-lspconfig.nvim'}, -- Optional
+            { 'williamboman/mason-lspconfig.nvim' }, -- Optional
 
             -- Autocompletion
-            {'hrsh7th/nvim-cmp'},     -- Required
-            {'hrsh7th/cmp-nvim-lsp'}, -- Required
-            {'L3MON4D3/LuaSnip'},     -- Required
+            { 'hrsh7th/nvim-cmp' },   -- Required
+            { 'hrsh7th/cmp-nvim-lsp' }, -- Required
+            { 'L3MON4D3/LuaSnip' },   -- Required
         }
     }
 
@@ -84,50 +85,50 @@ return require('packer').startup(function(use)
                     },
                     shortcut = {
                         { icon = '󰊳 ', icon_hl = "@variable", desc = 'Update', group = '@property',
-                        action = function ()
-                            vim.cmd(':so ~/.dotfiles/nvim/lua/cocobio/packer.lua')
-                            vim.cmd(':PackerSync')
-                        end,
-                        key = 'u'
-                    },
-                    {
-                        icon = ' ',
-                        icon_hl = '@variable',
-                        desc = 'Find Files',
-                        group = 'Label',
-                        action = 'Telescope find_files',
-                        key = 'f',
-                    },
-                    {
-                        desc = ' Open Browser',
-                        group = 'DiagnosticHint',
-                        action = function ()
-                            local api = require'nvim-tree.api'
-                            api.tree.open{current_window=true}
-                        end,
-                        key = 'e',
-                    },
-                    {
-                        desc = ' dotfiles',
-                        group = 'DashboardProjectTitle',
-                        action = function()
-                            local api = require "nvim-tree.api"
-                            vim.cmd(":cd ~/.dotfiles/")
-                            api.tree.open{current_window=true}
-                        end,
-                        key = 'd',
-                    },
-                    {
-                        desc = '󰗼 Quit',
-                        group = 'Number',
-                        action = 'quit',
-                        key = 'q',
-                    },
+                            action = function()
+                                vim.cmd(':so ~/.dotfiles/nvim/lua/cocobio/packer.lua')
+                                vim.cmd(':PackerSync')
+                            end,
+                            key = 'u'
+                        },
+                        {
+                            icon = ' ',
+                            icon_hl = '@variable',
+                            desc = 'Find Files',
+                            group = 'Label',
+                            action = 'Telescope find_files',
+                            key = 'f',
+                        },
+                        {
+                            desc = ' Open Browser',
+                            group = 'DiagnosticHint',
+                            action = function()
+                                local api = require 'nvim-tree.api'
+                                api.tree.open { current_window = true }
+                            end,
+                            key = 'e',
+                        },
+                        {
+                            desc = ' dotfiles',
+                            group = 'DashboardProjectTitle',
+                            action = function()
+                                local api = require "nvim-tree.api"
+                                vim.cmd(":cd ~/.dotfiles/")
+                                api.tree.open { current_window = true }
+                            end,
+                            key = 'd',
+                        },
+                        {
+                            desc = '󰗼 Quit',
+                            group = 'Number',
+                            action = 'quit',
+                            key = 'q',
+                        },
+                    }
                 }
             }
-        }
         end,
-        requires = {'nvim-tree/nvim-web-devicons'}
+        requires = { 'nvim-tree/nvim-web-devicons' }
     }
 
     use {
@@ -147,10 +148,21 @@ return require('packer').startup(function(use)
     use {
         'VonHeikemen/fine-cmdline.nvim',
         requires = {
-            {'MunifTanjim/nui.nvim'}
+            { 'MunifTanjim/nui.nvim' }
         }
     }
 
     -- For autosave of nvim sessions :)
     use 'tpope/vim-obsession'
+
+    use({
+        'MeanderingProgrammer/render-markdown.nvim',
+        after = { 'nvim-treesitter' },
+        requires = { 'echasnovski/mini.nvim', opt = true }, -- if you use the mini.nvim suite
+        -- requires = { 'echasnovski/mini.icons', opt = true }, -- if you use standalone mini plugins
+        -- requires = { 'nvim-tree/nvim-web-devicons', opt = true }, -- if you prefer nvim-web-devicons
+        config = function()
+            require('render-markdown').setup({})
+        end,
+    })
 end)

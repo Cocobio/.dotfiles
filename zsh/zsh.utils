@@ -21,7 +21,7 @@ function set-theme {
 # Use lf to switch directories and bind it to ctrl-o
 lfcd () {
     tmp="$(mktemp)"
-    lf -last-dir-path="$tmp" "$@"
+    lf -last-dir-path="$tmp" "$@" -command "set relativenumber"
     if [ -f "$tmp" ]; then
         dir="$(cat "$tmp")"
         rm -f "$tmp"

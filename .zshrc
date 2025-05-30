@@ -29,6 +29,11 @@ export EDITOR=nvim
 # # Key bindings
 source "$PREFIX/share/fzf/key-bindings.zsh"
 
+# For termux only
+if [ -n "${TERMUX_VERSION}" ]; then
+    export HOST="tab9u"
+fi
+
 source ~/.dotfiles/zsh/zsh.export
 source ~/.dotfiles/zsh/zsh.alias
 source ~/.dotfiles/zsh/zsh.prompt
@@ -39,3 +44,5 @@ fpath=("/data/data/com.termux/files/home/.zsh/plugins/zsh-completions" $fpath)
 
 source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+export PATH=$PATH:$HOME"/.cargo/bin"

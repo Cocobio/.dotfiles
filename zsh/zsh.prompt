@@ -1,4 +1,3 @@
-# PROMPT="%F{green}%1~ %F{red}󰛂 %f"
-# PROMPT="%F{cyan}%1~ %F{magenta} %f"
-PROMPT="%F{cyan}%1~ %F{magenta}> %f"
+# PROMPT="%F{#4e6ba6}$USER@%m -%f %F{cyan}%1~ %F{magenta}> %f"
+PROMPT="%F{#209fb5}%K{#209fb5}%F{#4c4f69}%m%F{#209fb5}%k%f %F{cyan}%1~ %F{magenta}> %f"
 # '${$((my_git_formatter()))+${my_git_format}}'

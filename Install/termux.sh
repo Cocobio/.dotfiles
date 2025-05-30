@@ -12,13 +12,16 @@ pkg upgrade -y
 #-------------------------------------#
 #       Install necessary pkgs
 #-------------------------------------#
-local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf libusb eza bat tree tectonic"
+local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf libusb eza bat tree tectonic libqrencode pandoc"
 
 for package in $packages; do
     pkg install $package -y
 done
 
 apt-get install llvm
+
+cargo install --locked presenterm
+cargo install --locked typst-cli
 
 #-------------------------------------#
 #       Clone or update dotfiles

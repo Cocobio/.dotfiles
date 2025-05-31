@@ -15,7 +15,13 @@ function kill-vnc {
 # termux change of themos
 function set-theme {
     file=`ls ~/.dotfiles/Termux/themes/ | fzf`
-    [[ -z "$file" ]] || ln -s ~/.dotfiles/Termux/themes/$file ~/.termux/colors.properties -f && termux-reload-settings
+    file_name=$(echo $file | awk -F. '{print $1}')
+    if [ -n "$file" ]; then
+        ln -s ~/.dotfiles/Termux/themes/$file ~/.termux/colors.properties -f
+        termux-reload-settings
+        sed --follow-symlinks -i -e "s/export THEME.*/export THEME=${file_name}/" ~/.zshrc
+        export THEME=$file_name
+    fi
 }
 
 # Use lf to switch directories and bind it to ctrl-o

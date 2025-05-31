@@ -1,0 +1,2 @@
+# Fix for jupyter notebook
+>> patchelf --add-needed libpython3.12.so /data/data/com.termux/files/usr/lib/python3.12/site-packages/zmq/backend/cython/_zmq.cpython-312.so

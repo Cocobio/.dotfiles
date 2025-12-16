@@ -26,8 +26,13 @@ export EDITOR=nvim
 # FZF configs in TERMUX
 # # Auto-completion
 [[ $- == *i* ]] && source "$PREFIX/share/fzf/completion.zsh" 2> /dev/null
-# # Key bindings
-source "$PREFIX/share/fzf/key-bindings.zsh"
+# Key bindings
+# Ubuntu's keybindings
+if [ -e "/usr/share/doc/fzf/examples/key-bindings.zsh" ]; then
+  source "/usr/share/doc/fzf/examples/key-bindings.zsh"
+else
+  source "$PREFIX/share/fzf/key-bindings.zsh"
+fi
 
 # For termux only
 if [ -n "${TERMUX_VERSION}" ]; then
@@ -45,5 +50,6 @@ fpath=("/data/data/com.termux/files/home/.zsh/plugins/zsh-completions" $fpath)
 source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 
+export PATH="$PATH:/snap/bin"
 export PATH=$PATH:$HOME"/.cargo/bin"
 export THEME=tokyonight-storm

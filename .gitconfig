@@ -1,0 +1,20 @@
+[user]
+    email = iosorio@udec.cl
+    name = Cocobio
+[difftool]
+	prompt = false
+[diff]
+	tool = nvimdiff
+[difftool "nvimdiff"]
+    cmd = "nvim -d \"$LOCAL\" \"$REMOTE\""
+[merge]
+    tool = vimdiff
+[mergetool "vimdiff"]
+    path = nvim
+
+[init]
+	defaultBranch = main
+[safe]
+	directory = /storage/emulated/0/Download/pyhack
+[alias]
+	d = difftool

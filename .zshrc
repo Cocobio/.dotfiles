@@ -53,3 +53,9 @@ source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 export PATH="$PATH:/snap/bin"
 export PATH=$PATH:$HOME"/.cargo/bin"
 export THEME=tokyonight-storm
+
+# Check crond, run if its not running
+if [ -z $(pgrep cron) ];
+then
+    crond
+fi

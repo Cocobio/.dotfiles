@@ -50,6 +50,24 @@ function zle-keymap-select {
     fi
 }
 
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+
+# fzf wrapper for tmux
+function fzf_wrapper {
+    if [ -z "$TMUX" ]; then
+        fzf "$@"
+    else
+        fzf --tmux "$@"
+    fi
+}
+
 zle -N zle-keymap-select
 zle-line-init() {
     zle -K viins # initiate `vi insert` as keymap (can be removed if `bindkey -V` has been set elsewhere)

@@ -8,8 +8,14 @@ return require('packer').startup(function(use)
     use 'wbthomason/packer.nvim'
 
     use {
-        'nvim-telescope/telescope.nvim', tag = '0.1.2',
-        -- or                            , branch = '0.1.x',
+        'nvim-telescope/telescope.nvim',
+        -- Pinned (not tracking a branch/tag) on purpose: tag 0.1.2 was 3+
+        -- years stale and crashed previewing buffers (ft_to_lang removed
+        -- from nvim-treesitter). Latest master now hard-requires Nvim
+        -- 0.11+ (we're on 0.10.4), so track master isn't safe yet either.
+        -- This is the newest commit that still supports 0.10.4. Bump once
+        -- Nvim is upgraded to 0.11+, then this pin can just be removed.
+        commit = '5255aa27c422de944791318024167ad5d40aad20',
         requires = { { 'nvim-lua/plenary.nvim' } }
     }
 
@@ -22,7 +28,7 @@ return require('packer').startup(function(use)
     use { 'rose-pine/neovim', as = 'rose-pine', }
     use { 'nyoom-engineering/oxocarbon.nvim' }
 
-    use('nvim-treesitter/nvim-treesitter', { run = ':TSUpdate' })
+    use('nvim-treesitter/nvim-treesitter', { branch = 'master', run = ':TSUpdate' })
     use('nvim-treesitter/playground')
 
     use('theprimeagen/harpoon')
@@ -53,7 +59,7 @@ return require('packer').startup(function(use)
         branch = 'v2.x',
         requires = {
             -- LSP Support
-            { 'neovim/nvim-lspconfig' }, -- Required
+            { 'neovim/nvim-lspconfig', tag = 'v2.5.0' }, -- Required
             {                          -- Optional
                 'williamboman/mason.nvim',
                 run = function()

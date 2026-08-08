@@ -1,7 +1,6 @@
 HISTFILE=~/.zsh_history
 HISTSIZE=1000
 SAVEHIST=1000  # Save most-recent 1000 lines
-
 # Basic auto/tab complete:
 autoload -U compinit
 zstyle ':completion:*' menu select
@@ -30,8 +29,10 @@ export EDITOR=nvim
 # Ubuntu's keybindings
 if [ -e "/usr/share/doc/fzf/examples/key-bindings.zsh" ]; then
   source "/usr/share/doc/fzf/examples/key-bindings.zsh"
-else
+elif [ -e "$PREFIX/share/fzf/key-bindings.zsh" ]; then
   source "$PREFIX/share/fzf/key-bindings.zsh"
+else
+  . /usr/share/fzf/shell/key-bindings.zsh
 fi
 
 # For termux only
@@ -52,6 +53,7 @@ source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 export PATH="$PATH:/snap/bin"
 export PATH=$PATH:$HOME"/.cargo/bin"
+export PATH=$PATH:$HOME"/.local/bin"
 export THEME=tokyonight-storm
 
 # Check crond, run if its not running

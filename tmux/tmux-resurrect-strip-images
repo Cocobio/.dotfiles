@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Strip kitty image placeholders from tmux-resurrect's saved pane contents.
+
+Run from @resurrect-hook-post-save-all.
+
+fastfetch draws its logo with kitty's Unicode placeholder protocol: the image
+itself is transmitted out-of-band and the grid holds U+10EEEE cells, each
+followed by combining marks encoding its row and column. resurrect's
+@resurrect-capture-pane-contents saves the grid as TEXT, so those placeholder
+cells are written to disk -- but the image they point at dies with the kitty
+process. On restore the placeholders come back referring to nothing, leaving a
+block of garbage where the logo was.
+
+Each placeholder is replaced by a single space rather than deleted, so the
+fastfetch text beside the logo keeps its alignment: the info block is drawn on
+the same lines as the image, so dropping whole lines would take the system
+information with it.
+"""
+
+import io
+import os
+import sys
+import tarfile
+import tempfile
+import unicodedata
+from pathlib import Path
+
+PLACEHOLDER = 0x10EEEE
+
+
+def clean(text):
+    out = []
+    skip_combining = False
+    for ch in text:
+        if ord(ch) == PLACEHOLDER:
+            out.append(" ")
+            skip_combining = True
+            continue
+        if skip_combining and unicodedata.combining(ch):
+            continue                     # the row/column marks that follow
+        skip_combining = False
+        out.append(ch)
+    return "".join(out)
+
+
+def main():
+    base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "tmux/resurrect"
+    archive = base / "pane_contents.tar.gz"
+    if not archive.is_file():
+        return 0
+
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            members = tar.getmembers()
+            payload = {m.name: (m, tar.extractfile(m).read() if m.isfile() else b"")
+                       for m in members}
+    except (tarfile.TarError, OSError):
+        return 0
+
+    changed = False
+    for name, (member, raw) in payload.items():
+        if not member.isfile():
+            continue
+        text = raw.decode("utf-8", "surrogateescape")
+        if PLACEHOLDER not in map(ord, text):
+            continue
+        payload[name] = (member, clean(text).encode("utf-8", "surrogateescape"))
+        changed = True
+    if not changed:
+        return 0
+
+    # Rewrite atomically: a half-written archive would lose every pane's history.
+    fd, tmp = tempfile.mkstemp(dir=str(base), suffix=".tar.gz")
+    os.close(fd)
+    try:
+        with tarfile.open(tmp, "w:gz") as tar:
+            for name, (member, raw) in payload.items():
+                if member.isfile():
+                    member.size = len(raw)
+                    tar.addfile(member, io.BytesIO(raw))
+                else:
+                    tar.addfile(member)
+        os.replace(tmp, archive)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

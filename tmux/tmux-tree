@@ -1,0 +1,497 @@
+#!/usr/bin/env python3
+"""A floating session/window/pane tree for tmux, with live preview.
+
+Why this exists rather than choose-tree or fzf:
+
+  * choose-tree has the tree, the collapsing and pane-level selection, but it is
+    a PANE MODE with a fixed key table and no callback on selection change, so
+    nothing can run as the highlight moves. It can only show its own inset
+    preview, and it cannot be hosted by display-popup directly.
+  * fzf gives fuzzy filtering and a focus event to drive live preview, but its
+    list is flat -- no tree, no collapsing, no panes.
+
+Owning the loop gets both. The whole tree arrives in ONE tmux call, and moving
+the cursor just calls switch-client, which updates the real windows behind the
+popup.
+
+Rendered with raw ANSI rather than curses: curses addresses a 256-entry palette
+and has no RGB colour pair, and every colour in this setup is exact Catppuccin
+hex. Program glyphs come from gen-tab-icons' ICONS table, so a pane here, a
+window pill and a kitty tab all show the same icon.
+
+Run inside `display-popup -E`, which overlays the existing client rather than
+creating one -- that is why a bare `switch-client` here moves the real client.
+"""
+
+import importlib.machinery
+import importlib.util
+import os
+import select
+import subprocess
+import sys
+import termios
+import tty
+from pathlib import Path
+
+# ── palette (Catppuccin Mocha, matching waybar/kitty/the status bar) ─────────
+BASE, MANTLE, CRUST = "30;30;46", "24;24;37", "17;17;27"
+SURFACE0, SURFACE1, SURFACE2 = "49;50;68", "69;71;90", "88;91;112"
+TEXT, SUBTEXT0, OVERLAY0, OVERLAY1 = "205;214;244", "166;173;200", "108;112;134", "127;132;156"
+MAUVE, BLUE, GREEN, PEACH, PINK = "203;166;247", "137;180;250", "166;227;161", "250;179;135", "245;194;231"
+TEAL, YELLOW, RED, LAVENDER, SKY = "148;226;213", "249;226;175", "243;139;168", "180;190;254", "137;220;235"
+SAPPHIRE = "116;199;236"
+# same nine the workspace pills use, so session N here matches workspace N there
+SESSION_COLOURS = [MAUVE, BLUE, GREEN, PEACH, PINK, TEAL, YELLOW, RED, LAVENDER]
+
+# Real tree connectors: a node is joined with ├─ unless it is the last child, in
+# which case └─, and each ancestor contributes │ or blank depending on whether
+# IT had siblings left. Chevrons are md-chevron-down / md-chevron-right, picked
+# by rendering the candidates rather than trusting a charset lookup.
+TREE_MID, TREE_END, TREE_BAR, TREE_GAP = "\u251c\u2500 ", "\u2514\u2500 ", "\u2502  ", "   "
+CHEV_OPEN, CHEV_SHUT = "\U000f0140", "\U000f0142"
+DOT = "\u2022"
+
+
+def fg(c):
+    return f"\x1b[38;2;{c}m"
+
+
+def bg(c):
+    return f"\x1b[48;2;{c}m"
+
+
+RESET, BOLD, DIM = "\x1b[0m", "\x1b[1m", "\x1b[2m"
+
+
+def load_icons():
+    """Reuse gen-tab-icons' ICONS so every surface shows the same glyph."""
+    path = Path.home() / ".local/bin/gen-tab-icons"
+    try:
+        loader = importlib.machinery.SourceFileLoader("gen_tab_icons", str(path))
+        spec = importlib.util.spec_from_loader("gen_tab_icons", loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)          # main() is guarded, so this is inert
+    except Exception:
+        return {}, "■"
+    table = {cmd: chr(cp) for cp, cmds, _ in mod.ICONS for cmd in cmds}
+    return table, chr(mod.FALLBACK)
+
+
+ICONS, ICON_FALLBACK = load_icons()
+
+
+def shortcut(i):
+    """Row index -> the key that picks it, spelled as the user must press it."""
+    if i < 10:
+        return str(i)
+    if i < 36:
+        return f"M-{chr(ord('a') + i - 10)}"
+    return ""
+
+
+def tag_width(rows):
+    """One column while every row is reachable by a digit, three once M-a is
+    needed. The tree body shifts right only when the chords actually appear."""
+    return 3 if rows > 10 else 1
+
+
+def tmux(*args):
+    return subprocess.run(("tmux",) + args, capture_output=True, text=True)
+
+
+def snapshot():
+    """The entire tree in one call: sessions -> windows -> panes."""
+    fmt = ("#{session_name}\t#{window_index}\t#{window_name}\t#{pane_index}"
+           "\t#{pane_current_command}\t#{?pane_active,1,0}\t#{?window_active,1,0}"
+           "\t#{?session_attached,1,0}")
+    out = tmux("list-panes", "-a", "-F", fmt).stdout
+    sessions = {}
+    for line in out.splitlines():
+        f = line.split("\t")
+        if len(f) != 8:
+            continue
+        sname, widx, wname, pidx, cmd, pact, wact, satt = f
+        s = sessions.setdefault(sname, {"name": sname, "attached": satt == "1", "windows": {}})
+        w = s["windows"].setdefault(widx, {"index": widx, "name": wname,
+                                           "active": wact == "1", "panes": []})
+        w["panes"].append({"index": pidx, "cmd": cmd, "active": pact == "1"})
+    return sessions
+
+
+class Keys:
+    """Unbuffered key reader.
+
+    sys.stdin.read() must NOT be mixed with select(): an arrow arrives as the
+    three bytes \x1b[B, a buffered read(1) pulls all three into Python's buffer
+    and hands back one, and select() then reports the fd empty -- so the escape
+    looks bare and the app quits on every arrow press. Read the fd directly and
+    keep the leftovers here instead.
+    """
+
+    CSI = {"A": "up", "B": "down", "C": "right", "D": "left",
+           "H": "home", "F": "end", "5": "pgup", "6": "pgdn"}
+
+    def __init__(self, fd):
+        self.fd = fd
+        self.buf = ""
+
+    def _fill(self, timeout):
+        if not select.select([self.fd], [], [], timeout)[0]:
+            return False
+        data = os.read(self.fd, 64)
+        if not data:
+            return False
+        self.buf += data.decode("utf-8", "replace")
+        return True
+
+    def pending(self):
+        """More input already waiting -- used to skip redundant previews."""
+        return bool(self.buf) or bool(select.select([self.fd], [], [], 0)[0])
+
+    def key(self):
+        if not self.buf and not self._fill(None):
+            return None
+        ch, self.buf = self.buf[0], self.buf[1:]
+        if ch != "\x1b":
+            return ch
+        # An escape on its own is cancel; followed by [ it is a cursor key; and
+        # followed by a plain character it is Alt-<char>, which is how terminals
+        # send M-a. Without this branch every Alt chord read as a bare escape and
+        # quit the picker.
+        if not self.buf and not self._fill(0.05):
+            return "esc"
+        if self.buf[0] != "[":
+            ch, self.buf = self.buf[0], self.buf[1:]
+            return f"alt-{ch}"
+        self.buf = self.buf[1:]
+        if not self.buf and not self._fill(0.05):
+            return "esc"
+        code, self.buf = self.buf[0], self.buf[1:]
+        if code in "56":
+            self.buf = self.buf.lstrip("~")
+        return self.CSI.get(code, "")
+
+
+class Picker:
+    def __init__(self):
+        self.keys = Keys(sys.stdin.fileno())
+        self.sessions = snapshot()
+        # Everything starts collapsed: the list opens as one line per session,
+        # and `l` (or a digit) walks down into windows and then panes.
+        self.shut_windows = {(s, w) for s, sd in self.sessions.items() for w in sd["windows"]}
+        self.shut_sessions = set(self.sessions)
+        self.filter = ""
+        self.filtering = False
+        self.cursor = 0
+        self.top = 0
+        self.rows = []
+        self.origin = self.here()
+        self.build()
+        self.cursor = self.index_of(self.origin) or 0
+
+    # ── model ───────────────────────────────────────────────────────────────
+    def here(self):
+        out = tmux("display-message", "-p",
+                   "#{session_name}\t#{window_index}\t#{pane_index}").stdout.strip()
+        f = out.split("\t")
+        return tuple(f) if len(f) == 3 else None
+
+    def build(self):
+        """Flatten the tree into visible rows, each carrying its own connector.
+
+        The prefix is assembled from ancestry: every ancestor that still had
+        siblings below it contributes a vertical bar, one that did not
+        contributes blank space, and the node itself gets ├─ or └─.
+        """
+        self.rows = []
+        q = self.filter.lower()
+        snames = sorted(self.sessions)
+        for si, sname in enumerate(snames):
+            s = self.sessions[sname]
+            wins = sorted(s["windows"].values(), key=lambda w: int(w["index"]))
+            if q:
+                hits = [w for w in wins
+                        if q in sname.lower() or q in w["name"].lower()
+                        or any(q in p["cmd"].lower() for p in w["panes"])]
+                if not hits:
+                    continue
+                self.rows.append(("session", (sname,), s, ""))
+                for wi, w in enumerate(hits):
+                    last = wi == len(hits) - 1
+                    self.rows.append(("window", (sname, w["index"]), w,
+                                      TREE_END if last else TREE_MID))
+                continue
+            self.rows.append(("session", (sname,), s, ""))
+            if sname in self.shut_sessions:
+                continue
+            for wi, w in enumerate(wins):
+                wlast = wi == len(wins) - 1
+                self.rows.append(("window", (sname, w["index"]), w,
+                                  TREE_END if wlast else TREE_MID))
+                if (sname, w["index"]) in self.shut_windows:
+                    continue
+                panes = sorted(w["panes"], key=lambda p: int(p["index"]))
+                stem = TREE_GAP if wlast else TREE_BAR
+                for pi, pane in enumerate(panes):
+                    plast = pi == len(panes) - 1
+                    self.rows.append(("pane", (sname, w["index"], pane["index"]), pane,
+                                      stem + (TREE_END if plast else TREE_MID)))
+        self.cursor = max(0, min(self.cursor, len(self.rows) - 1))
+
+    def index_of(self, target):
+        """Row for `target`, preferring the deepest node that is actually visible."""
+        if not target:
+            return None
+        best = None
+        for i, (kind, key, _, _) in enumerate(self.rows):
+            if kind == "session" and key[0] == target[0]:
+                best = i
+            elif kind == "window" and key == target[:2]:
+                best = i
+            elif kind == "pane" and key == target:
+                return i
+        return best
+
+    # ── rendering ───────────────────────────────────────────────────────────
+    def icon(self, cmd):
+        return ICONS.get(cmd, ICON_FALLBACK)
+
+    def line(self, i, width):
+        kind, key, node, prefix = self.rows[i]
+        sel = i == self.cursor
+        scolour = SESSION_COLOURS[sorted(self.sessions).index(key[0]) % len(SESSION_COLOURS)]
+
+        if kind == "session":
+            chev = CHEV_SHUT if key[0] in self.shut_sessions else CHEV_OPEN
+            body = f"{chev} {node['name']}"
+            marks = f" {DOT}" if node["attached"] else ""
+            colour = scolour
+        elif kind == "window":
+            shut = (key[0], key[1]) in self.shut_windows
+            chev = CHEV_SHUT if shut else CHEV_OPEN
+            cmd = next((p["cmd"] for p in node["panes"] if p["active"]), "")
+            body = f"{chev} {node['index']}  {self.icon(cmd)} {node['name']}"
+            marks = f" {DOT}" if node["active"] else ""
+            colour = TEXT
+        else:
+            body = f"{self.icon(node['cmd'])} {node['cmd']}"
+            marks = f" {DOT}" if node["active"] else ""
+            colour = SUBTEXT0
+
+        # Shortcut key down the left, spelled as pressed: 0-9 then M-a.
+        tag = shortcut(i)
+        # Shortcuts are controls, so they get a real colour rather than a grey:
+        # sapphire, which is outside SESSION_COLOURS so a tag can never be read as
+        # a session's own tint. The "M-" text already says a chord is needed, so
+        # both kinds share one colour.
+        tagcolour = SAPPHIRE
+        tw = tag_width(len(self.rows))
+        raw = f" {prefix}{body}{marks}"
+        raw = raw[:width - tw - 2].ljust(width - tw - 2)
+        if sel:
+            # Sky on the highlight: sapphire against surface2 is too close in
+            # value, and the tag disappeared on whichever row was selected.
+            return (f"{bg(SURFACE2)}{fg(SKY)}{tag:<{tw}} "
+                    f"{fg(TEXT)}{BOLD}{raw}{RESET}")
+        return f"{fg(tagcolour)}{tag:<{tw}} {fg(colour)}{raw}{RESET}"
+
+    def draw(self):
+        # Size from STDIN, not stdout: stdout may be redirected, and
+        # os.get_terminal_size() defaults to stdout and raises OSError there.
+        try:
+            w, h = os.get_terminal_size(sys.stdin.fileno())
+        except OSError:
+            w, h = 80, 24
+        body = h - 2
+        if self.cursor < self.top:
+            self.top = self.cursor
+        elif self.cursor >= self.top + body:
+            self.top = self.cursor - body + 1
+
+        # NB: raw mode clears ONLCR, so a bare \n is a line feed with no carriage
+        # return and every row would staircase to the right. Rows end with \r\n.
+        # Reset BEFORE clearing: ESC[2J fills with the CURRENT background, so a
+        # frame that ended mid-style would smear that colour over the popup.
+        out = [RESET + "\x1b[H\x1b[2J"]
+        head = " tmux tree" if not self.filtering else f" /{self.filter}"
+        out.append(f"{bg(SURFACE0)}{fg(LAVENDER)}{BOLD}{head[:w].ljust(w)}{RESET}\r\n")
+        shown = min(len(self.rows), self.top + body) - self.top
+        for i in range(self.top, self.top + shown):
+            out.append(self.line(i, w) + "\r\n")
+        for _ in range(body - shown):
+            out.append("\r\n")
+        # Fit the hint by dropping whole segments, never by slicing mid-word.
+        if self.filtering:
+            segs = ["\u23ce done", "esc cancel"]
+        else:
+            segs = ["jk/\u2191\u2193 move", "hl/\u2190\u2192 fold", "0-9 pick",
+                    "\u23ce open", "/ filter", "q quit"]
+        keys = ""
+        for seg in segs:
+            cand = seg if not keys else f"{keys}  {seg}"
+            if len(cand) + 1 > w - 1:
+                break
+            keys = cand
+        # One cell short of the width: filling the final column puts the terminal
+        # in deferred-wrap, which some terminals resolve as an extra blank row.
+        out.append(f"{fg(OVERLAY0)}{keys[:w - 1].ljust(w - 1)}{RESET}")
+        sys.stdout.write("".join(out))
+        sys.stdout.flush()
+
+    # ── preview ─────────────────────────────────────────────────────────────
+    def target(self, i):
+        kind, key, _, _ = self.rows[i]
+        if kind == "session":
+            return key[0]
+        return f"{key[0]}:{key[1]}"
+
+    def preview(self):
+        """Switch the real client to whatever is highlighted.
+
+        Skipped while more input is already buffered, so holding j does not fire
+        a tmux call per row -- only the row you land on gets previewed.
+        """
+        if not self.rows or self.keys.pending():
+            return
+        kind, key, _, _ = self.rows[self.cursor]
+        tmux("switch-client", "-t", self.target(self.cursor))
+        if kind == "pane":
+            tmux("select-pane", "-t", f"{key[0]}:{key[1]}.{key[2]}")
+        # NB: switching session under an open popup leaves tmux one text row
+        # short -- the row directly beneath the popup keeps the OLD session's
+        # cells. That is a tmux redraw bug, not ours: it reproduces with a plain
+        # `display-popup -E sleep 30` and an external switch-client, with this
+        # program nowhere involved. refresh-client, refresh-client -c,
+        # select-layout and resize-window -A all fail to repaint it, so there is
+        # nothing useful to do here; a redraw per keypress only adds flicker.
+
+    def restore(self):
+        if self.origin:
+            s, w, p = self.origin
+            tmux("switch-client", "-t", f"{s}:{w}")
+            tmux("select-pane", "-t", f"{s}:{w}.{p}")
+
+    # ── input ───────────────────────────────────────────────────────────────
+    def move(self, delta):
+        if self.rows:
+            self.cursor = max(0, min(len(self.rows) - 1, self.cursor + delta))
+
+    def fold(self):
+        kind, key, _, _ = self.rows[self.cursor]
+        if kind == "pane":
+            self.cursor = self.index_of((key[0], key[1], "")) or self.cursor
+            self.shut_windows.add((key[0], key[1]))
+        elif kind == "window":
+            if (key[0], key[1]) in self.shut_windows:
+                self.shut_sessions.add(key[0])          # already shut: go up a level
+            else:
+                self.shut_windows.add((key[0], key[1]))
+        else:
+            self.shut_sessions.add(key[0])
+        self.build()
+
+    def unfold(self):
+        kind, key, _, _ = self.rows[self.cursor]
+        if kind == "session":
+            self.shut_sessions.discard(key[0])
+        elif kind == "window":
+            self.shut_windows.discard((key[0], key[1]))
+        else:
+            return False                                 # a pane is a leaf: open it
+        self.build()
+        return True
+
+    def run(self):
+        while True:
+            self.draw()
+            k = self.keys.key()
+            if k is None:
+                return None
+
+            if self.filtering:
+                if k in ("\r", "\n"):
+                    self.filtering = False
+                elif k == "esc":
+                    self.filtering, self.filter = False, ""
+                    self.build()
+                elif k in ("\x7f", "\b"):
+                    self.filter = self.filter[:-1]
+                    self.build()
+                elif len(k) == 1 and k.isprintable():
+                    self.filter += k
+                    self.build()
+                continue
+
+            if k in ("esc", "q", "\x03"):
+                return None
+            if k in ("j", "down"):
+                self.move(1); self.preview()
+            elif k in ("k", "up"):
+                self.move(-1); self.preview()
+            elif k in ("h", "left"):
+                self.fold()
+            elif k in ("l", "right"):
+                if not self.unfold() and k == "l":
+                    return self.cursor
+            elif k == "g":
+                self.cursor = 0; self.preview()
+            elif k == "G":
+                self.cursor = len(self.rows) - 1; self.preview()
+            elif k == "/":
+                self.filtering = True
+            elif len(k) == 1 and k.isdigit():
+                n = int(k)
+                if n < len(self.rows):
+                    self.cursor = n
+                    return self.cursor
+            elif k.startswith("alt-") and k[4:].isalpha():
+                n = 10 + ord(k[4:].lower()) - ord("a")
+                if n < len(self.rows):
+                    self.cursor = n
+                    return self.cursor
+            elif k == "r":
+                self.sessions = snapshot(); self.build()
+            elif k in ("\r", "\n"):
+                return self.cursor
+
+
+def supported():
+    """display-popup needs tmux >= 3.2; python3 is implied by running at all."""
+    v = tmux("-V").stdout.strip().removeprefix("tmux ")
+    v = "".join(c for c in v if c.isdigit() or c == ".").rstrip(".")
+    try:
+        parts = [int(x) for x in v.split(".")[:2]]
+    except ValueError:
+        return False
+    return (parts + [0])[:2] >= [3, 2]
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--supported":
+        return 0 if supported() else 1
+    if not sys.stdin.isatty():
+        return 1
+    fd = sys.stdin.fileno()
+    saved = termios.tcgetattr(fd)
+    sys.stdout.write("\x1b[?1049h\x1b[?25l")              # alt screen, hide cursor
+    try:
+        tty.setraw(fd)
+        picker = Picker()
+        chosen = picker.run()
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+        sys.stdout.write("\x1b[?25h\x1b[?1049l")
+        sys.stdout.flush()
+
+    if chosen is None:
+        picker.restore()                                  # cancelled: put it back
+    else:
+        kind, key, _, _ = picker.rows[chosen]
+        tmux("switch-client", "-t", picker.target(chosen))
+        if kind == "pane":
+            tmux("select-pane", "-t", f"{key[0]}:{key[1]}.{key[2]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""Alert list for tmux: everything that rang, went noisy, or fell silent.
+
+Opened from the bell pill in the status bar (click) or prefix+N.
+
+    j/k up/down   move
+    Enter         go to the window, marking that alert seen
+    d             delete the selected alert outright
+    A             mark everything listed as seen
+    c             prune the ones already seen, keeping anything new
+    f             filter: important (bell + silence) / all
+    q             quit
+
+Entries STAY after being seen, so this is history rather than a queue that
+empties -- the dot is what separates new from reviewed. `c` prunes only reviewed
+entries, because the key it replaced cleared everything, throwing away alerts
+that had not been read yet.
+
+Read state is a SET of timestamps in ~/.cache/tmux-alerts.read, not a single
+"seen up to here" mark: alerts get reviewed out of order, and one cutoff cannot
+express "this one, not that one".
+
+Raw ANSI rather than curses, for the same reason as tmux-tree: curses has no RGB
+colour pair and cannot match the Catppuccin hex used everywhere else.
+
+What it cannot show is WHICH PANE rang. tmux's alert model is per-window --
+`hook_pane` is empty for bell, activity and silence alike, and no pane-level
+alert flag exists -- so every pane of the window is listed with the command it
+was running when the alert fired, and you judge. One-pane windows are exact.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import termios
+import tty
+from pathlib import Path
+
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+LOG = CACHE / "tmux-alerts.log"
+READ = CACHE / "tmux-alerts.read"        # timestamps of reviewed alerts
+FILTER = CACHE / "tmux-alerts.filter"    # the f choice, remembered between runs
+ALERT_LOG = str(Path.home() / ".local/bin/tmux-alert-log")
+
+# Catppuccin Mocha, matching tmux-tree and the waybar islands.
+MANTLE = "24;24;37"
+TEXT, SUBTEXT, OVERLAY = "205;214;244", "166;173;200", "108;112;134"
+RED, YELLOW, SKY, LAVENDER, GREEN = (
+    "243;139;168", "249;226;175", "137;220;235", "180;190;254", "166;227;161")
+SURFACE1 = "69;71;90"
+
+KIND = {                      # glyph, colour
+    "bell":     ("\U000f009a", RED),
+    "activity": ("\U000f06d0", YELLOW),
+    "silence":  ("\U000f0904", OVERLAY),
+}
+FILTERS = [("important", ("bell", "silence")),
+           ("all", ("bell", "activity", "silence"))]
+COLLAPSE_S = 20.0             # repeats of the same window+kind fold together
+
+
+def fg(c): return f"\x1b[38;2;{c}m"
+def bg(c): return f"\x1b[48;2;{c}m"
+RESET = "\x1b[0m"
+
+
+def tmux(*args):
+    try:
+        p = subprocess.run(("tmux",) + args, capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return p.stdout if p.returncode == 0 else ""
+
+
+def refresh_counter():
+    """Recompute the status pill. Delegated to tmux-alert-log so "how many are
+    outstanding" is defined in exactly one place."""
+    subprocess.run([ALERT_LOG, "--refresh"], capture_output=True)
+
+
+def key_of(entry):
+    """Stable identity for an alert, formatted identically in both scripts so the
+    read set and the pill counter agree on what an entry is."""
+    return f"{float(entry.get('ts', 0)):.6f}"
+
+
+def read_set():
+    try:
+        return set(READ.read_text().split())
+    except OSError:
+        return set()
+
+
+def write_read_set(keys):
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        READ.write_text("\n".join(sorted(keys)) + ("\n" if keys else ""))
+    except OSError:
+        pass
+
+
+def load():
+    """Log lines oldest-first, collapsed, each carrying its source line numbers
+    so a specific entry can be deleted."""
+    try:
+        raw = LOG.read_text().splitlines()
+    except OSError:
+        return []
+    seen = read_set()
+    rows = []
+    for n, line in enumerate(raw):
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        e["src"] = [n]
+        e["keys"] = [key_of(e)]
+        e["read"] = key_of(e) in seen
+        rows.append(e)
+
+    out = []
+    for r in rows:
+        if out:
+            prev = out[-1]
+            if (prev["kind"] == r["kind"] and prev["session"] == r["session"]
+                    and prev["window"] == r["window"]
+                    and float(r["ts"]) - float(prev["ts"]) < COLLAPSE_S):
+                prev["count"] = prev.get("count", 1) + 1
+                prev["ts"] = r["ts"]
+                prev["panes"] = r.get("panes", prev.get("panes"))
+                prev["src"] += r["src"]
+                prev["keys"] += r["keys"]
+                # A group counts as new if ANY member is still unreviewed.
+                prev["read"] = prev["read"] and r["read"]
+                continue
+        r = dict(r)
+        r.setdefault("count", 1)
+        out.append(r)
+    return out
+
+
+def delete_lines(drop_lines, drop_keys=()):
+    """Remove specific log lines under a lock: the alert hooks append to this
+    same file and an unlocked rewrite would race them."""
+    import fcntl
+    drop_lines = set(drop_lines)
+    try:
+        with LOG.open("r+") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            kept = [l for n, l in enumerate(fh.read().splitlines())
+                    if n not in drop_lines]
+            fh.seek(0)
+            fh.write("\n".join(kept) + ("\n" if kept else ""))
+            fh.truncate()
+    except OSError:
+        return
+    if drop_keys:
+        write_read_set(read_set() - set(drop_keys))
+
+
+def load_filter():
+    """The filter is a preference, not per-invocation state: someone who wants
+    activity in the list wants it next time too."""
+    try:
+        i = int(FILTER.read_text().strip())
+    except (OSError, ValueError):
+        return 0
+    return i if 0 <= i < len(FILTERS) else 0
+
+
+def save_filter(i):
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        FILTER.write_text(str(i))
+    except OSError:
+        pass
+
+
+class Keys:
+    """Unbuffered reader. Mixing select() with buffered stdin ate arrow keys in
+    tmux-tree; this reads bytes directly and decodes escapes itself."""
+
+    def __init__(self, fd):
+        self.fd = fd
+
+    def get(self):
+        ch = os.read(self.fd, 1)
+        if ch != b"\x1b":
+            return ch.decode("utf-8", "replace")
+        seq = os.read(self.fd, 2)
+        return {b"[A": "up", b"[B": "down", b"[H": "home", b"[F": "end"}.get(seq, "esc")
+
+
+def fmt_time(ts):
+    import time as _t
+    if _t.time() - ts < 86400:
+        return _t.strftime("%H:%M", _t.localtime(ts))
+    return _t.strftime("%d/%m %H:%M", _t.localtime(ts))
+
+
+def draw(rows, sel, filt, width, height):
+    name, kinds = FILTERS[filt]
+    shown = [r for r in rows if r.get("kind") in kinds]
+    shown.reverse()                                   # newest first
+    new = sum(1 for r in shown if not r["read"])
+
+    out = [RESET + "\x1b[H\x1b[2J"]
+    title = f" \U000f009a  tmux alerts  ·  {name}  ·  {new} new "
+    out.append(f"{bg(MANTLE)}{fg(LAVENDER)}\x1b[1m{title:<{width}}{RESET}\r\n")
+
+    if not shown:
+        out.append(f"{fg(OVERLAY)}   nothing recorded{RESET}\r\n")
+    for i, r in enumerate(shown[:height - 3]):
+        glyph, colour = KIND.get(r["kind"], ("?", TEXT))
+        if r["read"]:
+            colour = OVERLAY                          # reviewed rows recede
+        marker = f"{fg(SKY)}▌" if i == sel else " "
+        dot = f"{fg(GREEN)}●" if not r["read"] else " "
+        cmds = ", ".join(p.get("cmd", "?") + ("*" if p.get("active") else "")
+                         for p in r.get("panes", [])) or "-"
+        rep = f" x{r['count']}" if r.get("count", 1) > 1 else ""
+        dim = OVERLAY
+        body = (f"{fg(colour)}{glyph:<2}"
+                f"{fg(SUBTEXT if not r['read'] else dim)}{fmt_time(r['ts']):>11}  "
+                f"{fg(LAVENDER if not r['read'] else dim)}"
+                f"{r['session'] + ':' + r['window']:<14}"
+                f"{fg(TEXT if not r['read'] else dim)}{r.get('name','')[:16]:<17}"
+                f"{fg(OVERLAY)}{cmds[:max(10, width - 56)]}{fg(colour)}{rep}")
+        out.append(f"{bg(SURFACE1) if i == sel else ''}{marker}{dot} {body}{RESET}\r\n")
+
+    foot = (f" {fg(SKY)}j/k{fg(OVERLAY)} move  "
+            f"{fg(SKY)}↵{fg(OVERLAY)} go  "
+            f"{fg(SKY)}d{fg(OVERLAY)} delete  "
+            f"{fg(SKY)}A{fg(OVERLAY)} mark seen  "
+            f"{fg(SKY)}c{fg(OVERLAY)} prune seen  "
+            f"{fg(SKY)}f{fg(OVERLAY)} filter  "
+            f"{fg(SKY)}q{fg(OVERLAY)} quit ")
+    out.append(f"\x1b[{height};1H{bg(MANTLE)}{foot}{RESET}")
+    sys.stdout.write("".join(out))
+    sys.stdout.flush()
+    return shown
+
+
+def main():
+    rows = load()
+    fd = sys.stdin.fileno()
+    try:
+        old = termios.tcgetattr(fd)
+    except termios.error:                 # not a tty: dump and go
+        for r in rows:
+            print(f"{fmt_time(r['ts'])} {r['kind']} "
+                  f"{r['session']}:{r['window']} {r.get('name','')}")
+        return 0
+
+    tty.setraw(fd)
+    sys.stdout.write("\x1b[?25l")
+    sel, filt = 0, load_filter()
+    try:
+        keys = Keys(fd)
+        while True:
+            size = os.get_terminal_size(fd)
+            shown = draw(rows, sel, filt, size.columns, size.lines)
+            k = keys.get()
+
+            if k in ("q", "esc", "\x03"):
+                break
+            elif k in ("j", "down"):
+                sel = min(sel + 1, max(0, len(shown) - 1))
+            elif k in ("k", "up"):
+                sel = max(sel - 1, 0)
+            elif k == "home":
+                sel = 0
+            elif k == "end":
+                sel = max(0, len(shown) - 1)
+            elif k == "f":
+                filt = (filt + 1) % len(FILTERS)
+                save_filter(filt)         # on the keypress, so a kill keeps it
+                sel = 0
+            elif k in ("d", "x") and shown:
+                delete_lines(shown[sel]["src"], shown[sel]["keys"])
+                refresh_counter()
+                rows = load()
+                remaining = len([r for r in rows if r["kind"] in FILTERS[filt][1]])
+                sel = max(0, min(sel, remaining - 1))
+            elif k == "A" and shown:
+                write_read_set(read_set() | {x for r in shown for x in r["keys"]})
+                refresh_counter()
+                rows = load()
+            elif k == "c":
+                # Prune only what has been reviewed; anything still new stays.
+                drop = [(n, x) for r in rows if r["read"]
+                        for n, x in zip(r["src"], r["keys"])]
+                if drop:
+                    delete_lines([n for n, _ in drop], [x for _, x in drop])
+                    refresh_counter()
+                    rows, sel = load(), 0
+            elif k in ("\r", "\n") and shown:
+                r = shown[sel]
+                write_read_set(read_set() | set(r["keys"]))
+                refresh_counter()
+                tmux("switch-client", "-t", r["session"])
+                tmux("select-window", "-t", f"{r['session']}:{r['window']}")
+                break
+    finally:
+        sys.stdout.write("\x1b[?25h" + RESET)
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        # Nothing is marked seen just by looking: that is explicit (Enter or A).
+        refresh_counter()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(0)

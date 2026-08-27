@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Record one tmux alert. Run from the alert-bell/activity/silence hooks.
+
+    tmux-alert-log <bell|activity|silence> <window-id>
+    tmux-alert-log --refresh            recompute the status-bar counter
+
+tmux's alerts are per WINDOW, not per pane: `hook_pane` is empty for all three
+alert types and no pane_*_flag format exists, so tmux simply cannot say which
+pane rang. Verified, not assumed. The next best thing is done here -- every pane
+of the alerting window is recorded with the command it was running at that
+moment, so a single-pane window is unambiguous and a split gives you both
+candidates.
+
+Writes are a bare O_APPEND of one line, never a read-modify-write: a bell and an
+activity alert for the same window fire at the same instant, and the first
+version of this script had both hooks read the log, modify it and write it back,
+so one silently clobbered the other -- the bell vanished and only the activity
+entry survived. Appends under 4 KB are atomic, so concurrent hooks cannot lose
+each other. Collapsing repeats is the viewer's job for the same reason.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+LOG = CACHE / "tmux-alerts.log"
+KINDS = ("bell", "activity", "silence")
+MAX_BYTES = 256 * 1024   # trim well above anything the viewer will ever show
+
+
+def tmux(*args: str) -> str:
+    try:
+        p = subprocess.run(("tmux",) + args, capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return p.stdout if p.returncode == 0 else ""
+
+
+IMPORTANT = ("bell", "silence")
+READ = CACHE / "tmux-alerts.read"   # timestamps the viewer has marked seen
+
+
+def refresh_counter() -> None:
+    """Publish the unacknowledged count into tmux user options.
+
+    The pill counts alerts that have NOT been marked seen. Entries survive being
+    reviewed -- the viewer is history, and its dot separates new from seen -- so
+    "outstanding" is defined by the read set the viewer maintains, keyed by
+    timestamp because alerts get reviewed out of order.
+
+    It reads #{@alerts_unread}, NOT the live window flags: tmux clears a bell
+    flag only when the window is actually viewed and offers no way to dismiss
+    one (toggling monitor-bell off and on does not clear it -- tested), so a
+    flag-driven pill could never be cleared by reviewing. User options are read
+    by formats with zero subprocess.
+
+    Activity is excluded: monitor-activity is on, so it fires constantly and
+    would keep the pill lit permanently.
+    """
+    try:
+        seen = set(READ.read_text().split())
+    except OSError:
+        seen = set()
+    unread, worst = 0, ""
+    try:
+        for line in LOG.read_text().splitlines():
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (e.get("kind") in IMPORTANT
+                    and f"{float(e.get('ts', 0)):.6f}" not in seen):
+                unread += 1
+                if e["kind"] == "bell":
+                    worst = "bell"
+                elif not worst:
+                    worst = "silence"
+    except OSError:
+        pass
+    tmux("set-option", "-g", "@alerts_unread", str(unread))
+    tmux("set-option", "-g", "@alerts_kind", worst)
+    tmux("refresh-client", "-S")
+
+
+def main() -> int:
+    if len(sys.argv) == 2 and sys.argv[1] == "--refresh":
+        refresh_counter()
+        return 0
+    if len(sys.argv) != 3 or sys.argv[1] not in KINDS:
+        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
+        return 2
+    kind, win = sys.argv[1], sys.argv[2]
+
+    # The window can already be gone by the time the hook's shell runs.
+    info = tmux("display-message", "-p", "-t", win,
+                "#{session_name}\t#{window_index}\t#{window_name}").strip()
+    if not info:
+        return 0
+    parts = info.split("\t")
+    if len(parts) != 3:
+        return 0
+    session, index, name = parts
+
+    panes = []
+    for line in tmux("list-panes", "-t", win, "-F",
+                     "#{pane_index}\t#{pane_current_command}\t#{pane_active}").splitlines():
+        bits = line.split("\t")
+        if len(bits) == 3:
+            panes.append({"index": bits[0], "cmd": bits[1], "active": bits[2] == "1"})
+
+    entry = {"ts": time.time(), "kind": kind, "session": session,
+             "window": index, "name": name, "panes": panes}
+
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        with LOG.open("a") as fh:          # O_APPEND: atomic against the other hooks
+            fh.write(json.dumps(entry) + "\n")
+    except OSError:
+        return 1
+
+    # Trim rarely and only when oversized, under a lock so a concurrent hook
+    # cannot append into the middle of the rewrite.
+    try:
+        if LOG.stat().st_size > MAX_BYTES:
+            import fcntl
+            with LOG.open("r+") as fh:
+                fcntl.flock(fh, fcntl.LOCK_EX)
+                lines = fh.read().splitlines()[-500:]
+                fh.seek(0)
+                fh.write("\n".join(lines) + "\n")
+                fh.truncate()
+    except (OSError, ValueError):
+        pass
+
+    refresh_counter()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Send a pane to another window by index -- the tmux counterpart of Hyprland's
+# "move this window to workspace N".
+#
+#   tmux-pane-to <pane-id> <window-index>
+#
+# If the target window exists the pane is joined into it; if it does not, the
+# pane is broken out into a new window at that index. That mirrors Hyprland,
+# where moving a window to an empty workspace simply creates it.
+set -uo pipefail
+
+pane=${1:?usage: tmux-pane-to <pane-id> <window-index>}
+target=${2:?usage: tmux-pane-to <pane-id> <window-index>}
+
+# Target the pane's OWN session explicitly. A bare ":N" resolves against tmux's
+# *current* session, which is not necessarily the one the pane lives in -- a pane
+# in session UDEC would land in whatever session happened to be current.
+read -r session current < <(
+	tmux display-message -p -t "$pane" '#{session_name} #{window_index}' 2>/dev/null
+) || exit 1
+[[ -n ${session:-} ]] || exit 1
+[[ $current == "$target" ]] && exit 0        # already there; nothing to do
+
+if tmux list-windows -t "$session" -F '#{window_index}' 2>/dev/null | grep -qx -- "$target"; then
+	tmux join-pane -s "$pane" -t "$session:$target"
+else
+	tmux break-pane -s "$pane" -t "$session:$target"
+fi

@@ -1,2 +1,6 @@
 */plugin/
 Termux/themes/*
+
+# Python bytecode caches (kitty/tab_bar.py, and the scripts under local-bin)
+__pycache__/
+*.pyc

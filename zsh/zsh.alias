@@ -1,24 +1,28 @@
-# Aliases
+# Personal aliases. Sourced from .zshrc.
+#
+# Deliberately NOT overriding ls / ll / cp / mv / rm: CachyOS's zsh config
+# already defines those, and shadowing standard commands with -i variants makes
+# muscle memory that breaks on any machine without this file.
+
 alias v="nvim -o"
 alias py="python3"
-
 alias ..="cd .."
-# alias ll="ls --group-directories-first -g --human-readable -L -o"
-alias ll="eza -l --icons --group-directories-first --no-user --no-permissions --no-filesize --no-time"
-alias ls="eza --icons --group-directories-first"
 
-# Security
-alias cp="cp -i"
-alias mv="mv -i"
-alias rm="rm -i"
+# eza under its own names, so ls and ll keep their normal behaviour and the
+# pretty listing is something you ask for explicitly.
+alias es="eza --icons --group-directories-first"
+alias el="eza -l --icons --group-directories-first --no-user --no-permissions --no-filesize --no-time"
 
-# Easier to read disk
+# Easier to read
 alias df="df -h"
 alias free="free -m"
 
-# Asciinema Gif Generator alias
-alias agg='agg --font-dir "~/.local/share/fonts/" --font-family "CaskaydiaCove NFM"'
-
-# Termux rvnc launcher
-alias rvnc='am start --user 0 -n com.realvnc.viewer.android/.app.ConnectionChooserActivity'
-# alias disk0="cd ~/storage/shared/"
+# asciinema gif generator. --font-dir points at a symlink this repo owns, NOT at
+# a real font path: the actual directory differs per system (/usr/share/fonts/TTF
+# on CachyOS, somewhere under $PREFIX on Termux), and the alias should not have
+# to know. The install script resolves it once and points the link at it.
+#
+# The original was wrong twice over: --font-dir "~/.local/share/fonts/" has a
+# tilde inside quotes, which zsh does not expand, and that directory does not
+# exist here anyway -- so every gif silently fell back to a default font.
+alias agg='agg --font-dir "$HOME/.config/agg/fonts" --font-family "CaskaydiaCove NFM"'

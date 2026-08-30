@@ -1,54 +1,57 @@
-# vnc functions
-# https://wiki.termux.com/wiki/Graphical_Environment
-vnc_count=0
 
-function start-vnc {
-    [ $vnc_count -eq 0 ] && vnc_count=1 && vncserver -localhost
+# tab complete keybindings
+# Use vim keys in tab complete menu:
+bindkey -M menuselect 'h' vi-backward-char
+bindkey -M menuselect 'k' vi-up-line-or-history
+bindkey -M menuselect 'l' vi-forward-char
+bindkey -M menuselect 'j' vi-down-line-or-history
+bindkey -v '^?' backward-delete-char
+
+# vi mode
+bindkey -v
+export KEYTIMEOUT=1
+export EDITOR=nvim
+
+
+# Cursor shape per vi mode: insert = beam, normal = block, visual = underline.
+# DECSCUSR codes: 1/2 = blinking/steady block, 3/4 = underline, 5/6 = beam.
+# Swap the 2/4/6 below for 1/3/5 if you want them blinking.
+#
+# Registered with add-zle-hook-widget rather than by defining zle-line-init
+# directly, because zsh-syntax-highlighting already owns that widget; hook
+# widgets stack instead of overwriting each other.
+typeset -g _CURSOR_CUR=''
+
+_cursor_emit() {
+	[[ $_CURSOR_CUR == "$1" ]] && return   # skip redundant writes
+	_CURSOR_CUR=$1
+	printf '%s' "$1"
 }
 
-function kill-vnc {
-    [ $vnc_count -eq 1 ] && vnc_count=0 && vncserver -kill :1
-    # rm -rf /tmp/.X1-lock
-    # rm -rf /tmp/.X11-unix/X1
+_cursor_for_mode() {
+	if [[ $KEYMAP == vicmd ]]; then
+		# zsh stays in vicmd during a visual selection, so KEYMAP alone cannot
+		# tell normal from visual. REGION_ACTIVE does: 1 = visual, 2 = v-line.
+		if (( ${REGION_ACTIVE:-0} )); then
+			_cursor_emit $'\e[4 q'
+		else
+			_cursor_emit $'\e[2 q'
+		fi
+	else
+		_cursor_emit $'\e[6 q'
+	fi
 }
 
-# termux change of themos
-function set-theme {
-    file=`ls ~/.dotfiles/Termux/themes/ | fzf`
-    file_name=$(echo $file | awk -F. '{print $1}')
-    if [ -n "$file" ]; then
-        ln -s ~/.dotfiles/Termux/themes/$file ~/.termux/colors.properties -f
-        termux-reload-settings
-        sed --follow-symlinks -i -e "s/export THEME.*/export THEME=${file_name}/" ~/.zshrc
-        export THEME=$file_name
-    fi
-}
+# Hand a plain block back to whatever command is about to run.
+_cursor_reset() { _CURSOR_CUR=''; printf '\e[2 q' }
 
-# Use lf to switch directories and bind it to ctrl-o
-lfcd () {
-    tmp="$(mktemp)"
-    lf -last-dir-path="$tmp" "$@" -command "set relativenumber"
-    if [ -f "$tmp" ]; then
-        dir="$(cat "$tmp")"
-        rm -f "$tmp"
-        [ -d "$dir" ] && [ "$dir" != "$(pwd)" ] && cd "$dir"
-    fi
-}
-bindkey -s '^o' 'lfcd\n'
-
-
-# Change cursor shape for different vi modes.
-function zle-keymap-select {
-    if [[ ${KEYMAP} == vicmd ]] ||
-        [[ $1 = 'block' ]]; then
-        echo -ne '\e[1 q'
-    elif [[ ${KEYMAP} == main ]] ||
-        [[ ${KEYMAP} == viins ]] ||
-        [[ ${KEYMAP} = '' ]] ||
-        [[ $1 = 'beam' ]]; then
-        echo -ne '\e[5 q'
-    fi
-}
+autoload -Uz add-zle-hook-widget
+add-zle-hook-widget line-init       _cursor_for_mode
+add-zle-hook-widget keymap-select   _cursor_for_mode
+add-zle-hook-widget line-finish     _cursor_reset
+# Visual mode does not change KEYMAP, so poll on redraw to catch it. The
+# _cursor_emit guard makes this a no-op unless the shape actually changes.
+add-zle-hook-widget line-pre-redraw _cursor_for_mode
 
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
@@ -58,21 +61,29 @@ function y() {
 	rm -f -- "$tmp"
 }
 
+# presenterm in its own kitty instance: near-opaque background for readability
+# (global default is 0.6), plus a distinct app_id so Hyprland window rules can
+# target presentations specifically. No recursion: kitty execs the binary
+# directly rather than through a shell, so the alias is not re-expanded.
+# presenterm in its own kitty window, dimmed a little for projectors.
+#
+# TERM_PROGRAM is cleared deliberately. tmux exports TERM_PROGRAM=tmux, and a
+# kitty window spawned from a tmux pane INHERITS it -- along with TMUX and
+# TMUX_PANE -- even though the new window is not inside tmux at all. presenterm
+# reads TERM_PROGRAM, concludes it is multiplexed, and wraps its kitty graphics
+# in tmux passthrough (\ePtmux;...). Nothing unwraps them, so kitty reports
+# "Unknown DCS escape code: tmux;..." and presenterm falls back to ascii-blocks.
+#
+# Measured: clearing TMUX alone does NOT help; clearing TERM_PROGRAM alone does.
+#
+# Guarded on kitty: the alias EXISTS to open a kitty window, so on a machine
+# without kitty (Termux, a plain server) it would shadow the real binary with a
+# command that cannot run -- presenterm would simply stop working. Without the
+# alias the binary runs directly, which is the correct behaviour there.
+if command -v kitty >/dev/null 2>&1; then
+    alias presenterm='env -u TERM_PROGRAM -u TERM_PROGRAM_VERSION kitty --app-id presenterm --override background_opacity=0.95 presenterm'
+fi
 
-# fzf wrapper for tmux
-function fzf_wrapper {
-    if [ -z "$TMUX" ]; then
-        fzf "$@"
-    else
-        fzf --tmux "$@"
-    fi
-}
-
-zle -N zle-keymap-select
-zle-line-init() {
-    zle -K viins # initiate `vi insert` as keymap (can be removed if `bindkey -V` has been set elsewhere)
-    echo -ne "\e[5 q"
-}
-zle -N zle-line-init
-echo -ne '\e[5 q' # Use beam shape cursor on startup.
-preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.']'}']'
+# Per-host ssh glyphs. Generated by ~/.local/bin/gen-tab-icons; edit the HOSTS
+# table there and re-run rather than editing the generated file.
+[[ -r ~/.config/zsh/ssh-icons.zsh ]] && source ~/.config/zsh/ssh-icons.zsh

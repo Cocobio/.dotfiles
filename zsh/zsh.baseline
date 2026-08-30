@@ -1,0 +1,58 @@
+# Portable stand-in for CachyOS's cachyos-config.zsh, for systems that ship no
+# such file (Termux, Ubuntu). Sourced by zshrc ONLY when the CachyOS one is
+# absent, so on CachyOS this file is inert.
+#
+# Every source is guarded and every location is tried in turn: whatever is
+# installed gets used, whatever is missing is skipped in silence. That is the
+# whole point -- one zshrc has to survive three very different machines.
+#
+# What CachyOS's version gives us, and this tries to reproduce:
+#   oh-my-zsh (+ git fzf extract), powerlevel10k, zsh-syntax-highlighting,
+#   zsh-autosuggestions, zsh-history-substring-search, command-not-found.
+# Its ~15 pacman aliases are deliberately NOT reproduced.
+
+# --- oh-my-zsh ---------------------------------------------------------
+for _d in "$HOME/.oh-my-zsh" /usr/share/oh-my-zsh "${PREFIX:-/nonexistent}/share/oh-my-zsh"; do
+    [[ -r $_d/oh-my-zsh.sh ]] || continue
+    export ZSH=$_d
+    DISABLE_MAGIC_FUNCTIONS="true"
+    COMPLETION_WAITING_DOTS="true"
+    [[ -z "${plugins[*]}" ]] && plugins=(git fzf extract)
+    source "$ZSH/oh-my-zsh.sh"
+    break
+done
+unset _d
+
+# --- powerlevel10k -----------------------------------------------------
+for _f in /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme \
+          "$HOME/.powerlevel10k/powerlevel10k.zsh-theme" \
+          "$HOME/powerlevel10k/powerlevel10k.zsh-theme" \
+          "${PREFIX:-/nonexistent}/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme"; do
+    [[ -r $_f ]] && { source "$_f"; break; }
+done
+unset _f
+
+# --- plugins -----------------------------------------------------------
+# Same plugin under the several paths distributions actually use.
+for _p in zsh-syntax-highlighting zsh-autosuggestions zsh-history-substring-search; do
+    for _f in "/usr/share/zsh/plugins/$_p/$_p.zsh" \
+              "/usr/share/$_p/$_p.zsh" \
+              "$HOME/.zsh/plugins/$_p/$_p.zsh" \
+              "${PREFIX:-/nonexistent}/share/zsh/plugins/$_p/$_p.zsh"; do
+        [[ -r $_f ]] && { source "$_f"; break; }
+    done
+done
+unset _p _f
+
+# --- history -----------------------------------------------------------
+# oh-my-zsh sets these when present; define them anyway so a machine without it
+# still gets a usable history rather than zsh's 30-line default.
+HISTFILE=${HISTFILE:-$HOME/.zsh_history}
+[[ $HISTSIZE -ge 50000 ]] || HISTSIZE=50000
+[[ $SAVEHIST -ge 10000 ]] || SAVEHIST=10000
+setopt HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE SHARE_HISTORY
+
+# --- completion --------------------------------------------------------
+if ! whence -w compinit >/dev/null 2>&1; then
+    autoload -Uz compinit && compinit
+fi

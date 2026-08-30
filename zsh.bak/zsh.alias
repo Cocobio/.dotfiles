@@ -1,0 +1,24 @@
+# Aliases
+alias v="nvim -o"
+alias py="python3"
+
+alias ..="cd .."
+# alias ll="ls --group-directories-first -g --human-readable -L -o"
+alias ll="eza -l --icons --group-directories-first --no-user --no-permissions --no-filesize --no-time"
+alias ls="eza --icons --group-directories-first"
+
+# Security
+alias cp="cp -i"
+alias mv="mv -i"
+alias rm="rm -i"
+
+# Easier to read disk
+alias df="df -h"
+alias free="free -m"
+
+# Asciinema Gif Generator alias
+alias agg='agg --font-dir "~/.local/share/fonts/" --font-family "CaskaydiaCove NFM"'
+
+# Termux rvnc launcher
+alias rvnc='am start --user 0 -n com.realvnc.viewer.android/.app.ConnectionChooserActivity'
+# alias disk0="cd ~/storage/shared/"

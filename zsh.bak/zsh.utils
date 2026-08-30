@@ -1,0 +1,78 @@
+# vnc functions
+# https://wiki.termux.com/wiki/Graphical_Environment
+vnc_count=0
+
+function start-vnc {
+    [ $vnc_count -eq 0 ] && vnc_count=1 && vncserver -localhost
+}
+
+function kill-vnc {
+    [ $vnc_count -eq 1 ] && vnc_count=0 && vncserver -kill :1
+    # rm -rf /tmp/.X1-lock
+    # rm -rf /tmp/.X11-unix/X1
+}
+
+# termux change of themos
+function set-theme {
+    file=`ls ~/.dotfiles/Termux/themes/ | fzf`
+    file_name=$(echo $file | awk -F. '{print $1}')
+    if [ -n "$file" ]; then
+        ln -s ~/.dotfiles/Termux/themes/$file ~/.termux/colors.properties -f
+        termux-reload-settings
+        sed --follow-symlinks -i -e "s/export THEME.*/export THEME=${file_name}/" ~/.zshrc
+        export THEME=$file_name
+    fi
+}
+
+# Use lf to switch directories and bind it to ctrl-o
+lfcd () {
+    tmp="$(mktemp)"
+    lf -last-dir-path="$tmp" "$@" -command "set relativenumber"
+    if [ -f "$tmp" ]; then
+        dir="$(cat "$tmp")"
+        rm -f "$tmp"
+        [ -d "$dir" ] && [ "$dir" != "$(pwd)" ] && cd "$dir"
+    fi
+}
+bindkey -s '^o' 'lfcd\n'
+
+
+# Change cursor shape for different vi modes.
+function zle-keymap-select {
+    if [[ ${KEYMAP} == vicmd ]] ||
+        [[ $1 = 'block' ]]; then
+        echo -ne '\e[1 q'
+    elif [[ ${KEYMAP} == main ]] ||
+        [[ ${KEYMAP} == viins ]] ||
+        [[ ${KEYMAP} = '' ]] ||
+        [[ $1 = 'beam' ]]; then
+        echo -ne '\e[5 q'
+    fi
+}
+
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+
+# fzf wrapper for tmux
+function fzf_wrapper {
+    if [ -z "$TMUX" ]; then
+        fzf "$@"
+    else
+        fzf --tmux "$@"
+    fi
+}
+
+zle -N zle-keymap-select
+zle-line-init() {
+    zle -K viins # initiate `vi insert` as keymap (can be removed if `bindkey -V` has been set elsewhere)
+    echo -ne "\e[5 q"
+}
+zle -N zle-line-init
+echo -ne '\e[5 q' # Use beam shape cursor on startup.
+preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.']'}']'

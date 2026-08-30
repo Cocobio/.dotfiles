@@ -1,0 +1,70 @@
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+
+# fastfetch, but only for a genuinely new interactive terminal:
+#   -o interactive, -t 1  skip scripts, pipes and tooling (zsh -c, CI, editors)
+#   $NVIM                 skip :terminal buffers inside nvim
+#   $_FASTFETCH_SHOWN     shell-local (not exported), so re-sourcing this file
+#                         is a no-op while new shells still get the banner
+#
+# The logo is a PNG drawn with kitty's graphics protocol, which inside tmux is
+# tunnelled to the terminal as a passthrough sequence. tmux can only forward that
+# to an ATTACHED client -- with none, the image payload is dropped while the
+# Unicode placeholder cells still land in the pane grid, so the banner comes back
+# as an empty gap. That is exactly what a tmux-continuum restore at boot does:
+# it recreates every pane, and their shells run with no client anywhere.
+# So skip the banner outright when detached; resurrect replays the pane's own
+# saved text anyway, and this avoids printing it twice.
+# The marker is set OUTSIDE the banner test, so it records "this shell has read
+# zshrc", not "this shell printed a banner". Set inside, a shell that skipped the
+# banner (detached tmux pane, non-tty) never marked itself, and a later
+# `source ~/.zshrc` from an attached client printed it -- a reload showing a
+# banner is exactly what this is meant to avoid.
+if [[ -z $_FASTFETCH_SHOWN ]]; then
+    typeset -g _FASTFETCH_SHOWN=1
+    if [[ -o interactive && -t 1 && -z $NVIM ]] &&
+       { [[ -z $TMUX ]] || [[ "$(tmux display-message -p '#{session_attached}' 2>/dev/null)" != 0 ]]; }; then
+        fastfetch
+    fi
+fi
+
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# Distribution shell baseline. CachyOS ships one (oh-my-zsh, powerlevel10k,
+# syntax highlighting, autosuggestions, history-substring-search,
+# command-not-found and its pacman aliases). Termux and Ubuntu do not, so they
+# fall back to our own portable equivalent -- otherwise this zshrc degrades to a
+# bare zsh with no prompt and no completions on those machines.
+if [[ -r /usr/share/cachyos-zsh-config/cachyos-config.zsh ]]; then
+    source /usr/share/cachyos-zsh-config/cachyos-config.zsh
+else
+    [[ ! -f ~/.zsh.baseline ]] || source ~/.zsh.baseline
+fi
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+[[ ! -f ~/.zsh.utils ]] || source ~/.zsh.utils
+# ~/.local/bin holds our own scripts, plus symlinks into this repo (the tmux
+# helpers live in dotfiles/tmux/ and are linked from here). Created if absent so
+# the PATH entry is never a dangling directory on a fresh machine, and guarded
+# so re-sourcing or a system that already adds it cannot stack duplicates.
+[[ -d $HOME/.local/bin ]] || mkdir -p "$HOME/.local/bin"
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# `cargo install` drops binaries here (agg, among others). Arch's rustup package
+# does not create ~/.cargo/env, so nothing puts this on PATH by itself -- which
+# is why a freshly cargo-installed agg was simply "not found".
+#
+# Only prepended when it is not already there: another system may well add it
+# from its own profile, and re-sourcing this file should not stack duplicates.
+if [[ -d $HOME/.cargo/bin && ":$PATH:" != *":$HOME/.cargo/bin:"* ]]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+[[ ! -f ~/.zsh.alias ]] || source ~/.zsh.alias

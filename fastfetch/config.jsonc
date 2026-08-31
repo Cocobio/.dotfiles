@@ -1,0 +1,43 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+  "logo": {
+    "type": "kitty-icat",
+    "source": "~/.config/fastfetch/logos/climber.png",
+    "height": 18,
+    "preserveAspectRatio": true,
+    "padding": {
+      "top": 1,
+      "left": 2,
+      "right": 3
+    }
+  },
+
+  "display": {
+    "separator": "  ",
+    "color": {
+      "keys": "magenta",
+      "title": "blue"
+    }
+  },
+
+  "modules": [
+    "title",
+    "separator",
+    "os",
+    "kernel",
+    "uptime",
+    "packages",
+    "shell",
+    "terminal",
+    "wm",
+    "cpu",
+    "gpu",
+    "memory",
+    "swap",
+    "disk",
+    "battery",
+    "break",
+    "colors"
+  ]
+}

@@ -1,0 +1,352 @@
+general:
+  # Commands to run when the WM has started. This is useful for running a
+  # script or launching another application.
+  # Example: The below command launches Zebar.
+  startup_commands: ['shell-exec zebar']
+
+  # Commands to run just before the WM is shutdown.
+  # Example: The below command kills Zebar.
+  shutdown_commands: ['shell-exec taskkill /IM zebar.exe /F']
+
+  # Commands to run after the WM config is reloaded.
+  config_reload_commands: []
+
+  # Whether to automatically focus windows underneath the cursor.
+  focus_follows_cursor: false
+
+  # Whether to switch back and forth between the previously focused
+  # workspace when focusing the current workspace.
+  toggle_workspace_on_refocus: false
+
+  cursor_jump:
+    # Whether to automatically move the cursor on the specified trigger.
+    enabled: true
+
+    # Trigger for cursor jump:
+    # - 'monitor_focus': Jump when focus changes between monitors.
+    # - 'window_focus': Jump when focus changes between windows.
+    trigger: 'monitor_focus'
+
+  # How windows should be hidden when switching workspaces.
+  # - 'cloak': Recommended. Hides windows with no animation.
+  # - 'hide': Legacy method (v3.5 and earlier) that has a brief animation,
+  # but has stability issues with some apps.
+  hide_method: 'cloak'
+
+  # Affects which windows get shown in the native Windows taskbar. Has no
+  # effect if `hide_method: 'hide'`.
+  # - 'true': Show all windows (regardless of workspace).
+  # - 'false': Only show windows from the currently shown workspaces.
+  show_all_in_taskbar: false
+
+gaps:
+  # Whether to scale the gaps with the DPI of the monitor.
+  scale_with_dpi: true
+
+  # Gap between adjacent windows.
+  inner_gap: '10px'
+
+  # Gap between windows and the screen edge.
+  outer_gap:
+    top: '50px'
+    right: '10px'
+    bottom: '10px'
+    left: '10px'
+
+window_effects:
+  # Visual effects to apply to the focused window.
+  focused_window:
+    # Highlight the window with a colored border.
+    # ** Exclusive to Windows 11 due to API limitations.
+    border:
+      enabled: true
+      color: '#8dbcff'
+
+    # Remove the title bar from the window's frame. Note that this can
+    # cause rendering issues for some applications.
+    hide_title_bar:
+      enabled: false
+
+    # Change the corner style of the window's frame.
+    # ** Exclusive to Windows 11 due to API limitations.
+    corner_style:
+      enabled: false
+      # Allowed values: 'square', 'rounded', 'small_rounded'.
+      style: 'rounded'
+
+    # Change the transparency of the window.
+    transparency:
+      enabled: false
+      # Can be something like '95%' or '0.95' for slightly transparent windows.
+      # '0' or '0%' is fully transparent (and, by consequence, unfocusable).
+      opacity: '100%'
+
+  # Visual effects to apply to non-focused windows.
+  other_windows:
+    border:
+      enabled: true
+      color: '#a1a1a1'
+    hide_title_bar:
+      enabled: false
+    corner_style:
+      enabled: false
+      style: 'square'
+    transparency:
+      enabled: true
+      opacity: '95%'
+
+window_behavior:
+  # New windows are created in this state whenever possible.
+  # Allowed values: 'tiling', 'floating'.
+  initial_state: 'tiling'
+
+  # Sets the default options for when a new window is created. This also
+  # changes the defaults for when the state change commands, like
+  # `set-floating`, are used without any flags.
+  state_defaults:
+    floating:
+      # Whether to center floating windows by default.
+      centered: true
+
+      # Whether to show floating windows as always on top.
+      shown_on_top: false
+
+    fullscreen:
+      # Maximize the window if possible. If the window doesn't have a
+      # maximize button, then it'll be fullscreen'ed normally instead.
+      maximized: false
+
+      # Whether to show fullscreen windows as always on top.
+      shown_on_top: false
+
+workspaces:
+  - name: '1'
+  - name: '2'
+  - name: '3'
+  - name: '4'
+  - name: '5'
+  - name: '6'
+  - name: '7'
+  - name: '8'
+  - name: '9'
+  # Mirrors the named 'gaming' workspace on the Hyprland laptop (SUPER+G).
+  - name: 'gaming'
+
+window_rules:
+  - commands: ['set-floating']
+    match:
+      # Initialize as floating windows
+      - window_process: { equals: 'explorer' }
+      - window_process: { equals: 'p4v' }
+      - window_process: { equals: 'Taskmgr' }
+      - window_process: { equals: 'WinRAR' }
+      - window_process: { equals: 'MEGAsync' }
+      - window_process: { equals: 'steamwebhelper' }
+      - window_process: { regex: 'mega' }
+      - window_process: { regex: 'vlc' }
+       # mega-desktop-app-gfxworker
+      # MEGAsync
+
+  - commands: ['ignore']
+    match:
+      # Ignores any Zebar windows.
+      - window_process: { equals: 'zebar' }
+
+      # Ignores picture-in-picture windows for browsers.
+      - window_title: { regex: '[Pp]icture.in.[Pp]icture' }
+        window_class: { regex: 'Chrome_WidgetWin_1|MozillaDialogClass' }
+
+      # Ignore rules for various 3rd-party apps.
+      - window_process: { equals: 'PowerToys' }
+        window_class: { regex: 'HwndWrapper\[PowerToys\.PowerAccent.*?\]' }
+      - window_process: { equals: 'PowerToys' }
+        window_title: { regex: '.*? - Peek' }
+      - window_process: { equals: 'Lively' }
+        window_class: { regex: 'HwndWrapper' }
+      - window_process: { equals: 'EXCEL' }
+        window_class: { not_regex: 'XLMAIN' }
+      - window_process: { equals: 'WINWORD' }
+        window_class: { not_regex: 'OpusApp' }
+      - window_process: { equals: 'POWERPNT' }
+        window_class: { not_regex: 'PPTFrameClass' }
+
+binding_modes:
+  # When enabled, the focused window can be resized via arrow keys or HJKL.
+  - name: 'resize'
+    keybindings:
+      - commands: ['resize --width -2%']
+        bindings: ['h', 'left']
+      - commands: ['resize --width +2%']
+        bindings: ['l', 'right']
+      - commands: ['resize --height +2%']
+        bindings: ['k', 'up']
+      - commands: ['resize --height -2%']
+        bindings: ['j', 'down']
+      # Press enter/escape to return to default keybindings.
+      - commands: ['wm-disable-binding-mode --name resize']
+        bindings: ['escape', 'enter']
+
+keybindings:
+  # ---------------------------------------------------------------------------
+  # Mirrors the Hyprland laptop, where mainMod = SUPER. Everything therefore
+  # lives on lwin, NOT alt.
+  #
+  # That is not only for muscle memory: alt+<number> used to be GlazeWM's
+  # workspace switcher, and it swallowed the keys before Windows Terminal could
+  # pass them to tmux in WSL. With every binding on lwin, the whole alt space is
+  # free for tmux.
+  #
+  # Windows reserves some lwin chords. GlazeWM's low-level hook usually takes
+  # them first, but two cannot be taken at all:
+  #   lwin+l          locks the session -- OS reserved, unbindable. No loss: it
+  #                   is exactly what SUPER+L does on the laptop.
+  #   lwin+ctrl+left/right  virtual-desktop switching. Bound here anyway; if
+  #                   Windows wins, use lwin+shift+a / lwin+shift+f instead.
+  # Others (lwin+e explorer, lwin+r run, lwin+t taskbar, lwin+w widgets,
+  # lwin+tab task view, lwin+1..9 taskbar apps) are normally intercepted.
+  # ---------------------------------------------------------------------------
+
+  # -- Focus a window ---------------------------------------------------------
+  # Arrows match SUPER+<arrow>; ctrl+hjkl matches SUPER+CTRL+<hjkl>, which on the
+  # laptop runs hypr-nav (tmux-aware). There is no tmux integration here, so this
+  # is a plain directional focus.
+  - commands: ['focus --direction left']
+    bindings: ['lwin+left', 'lwin+ctrl+h']
+  - commands: ['focus --direction right']
+    bindings: ['lwin+right', 'lwin+ctrl+l']
+  - commands: ['focus --direction up']
+    bindings: ['lwin+up', 'lwin+ctrl+k']
+  - commands: ['focus --direction down']
+    bindings: ['lwin+down', 'lwin+ctrl+j']
+
+  # -- Move a window ----------------------------------------------------------
+  # SUPER+SHIFT+<arrow> and SUPER+SHIFT+<hjkl> on the laptop.
+  - commands: ['move --direction left']
+    bindings: ['lwin+shift+left', 'lwin+shift+h']
+  - commands: ['move --direction right']
+    bindings: ['lwin+shift+right', 'lwin+shift+l']
+  - commands: ['move --direction up']
+    bindings: ['lwin+shift+up', 'lwin+shift+k']
+  - commands: ['move --direction down']
+    bindings: ['lwin+shift+down', 'lwin+shift+j']
+
+  # -- Resize -----------------------------------------------------------------
+  # Same u/p/i/o cluster as SUPER+CTRL+u/p/i/o on the laptop.
+  - commands: ['resize --width -2%']
+    bindings: ['lwin+ctrl+u']
+  - commands: ['resize --width +2%']
+    bindings: ['lwin+ctrl+p']
+  - commands: ['resize --height +2%']
+    bindings: ['lwin+ctrl+i']
+  - commands: ['resize --height -2%']
+    bindings: ['lwin+ctrl+o']
+  - commands: ['wm-enable-binding-mode --name resize']
+    bindings: ['lwin+r']
+
+  # -- Window state -----------------------------------------------------------
+  - commands: ['close']
+    bindings: ['lwin+q']                    # SUPER+Q
+  - commands: ['toggle-floating --centered']
+    bindings: ['lwin+alt+space']            # SUPER+ALT+Space
+  - commands: ['toggle-fullscreen']
+    bindings: ['lwin+f']                    # SUPER+F
+  - commands: ['toggle-tiling-direction']
+    bindings: ['lwin+j']                    # SUPER+J (togglesplit)
+  - commands: ['toggle-tiling']
+    bindings: ['lwin+shift+t']
+  - commands: ['toggle-minimized']
+    bindings: ['lwin+m']
+
+  # -- Window manager ---------------------------------------------------------
+  - commands: ['wm-exit']
+    bindings: ['lwin+shift+e']
+  - commands: ['wm-reload-config']
+    bindings: ['lwin+shift+r']
+  - commands: ['wm-redraw']
+    bindings: ['lwin+shift+w']
+  - commands: ['wm-toggle-pause']
+    bindings: ['lwin+shift+p']
+
+  # -- Launchers --------------------------------------------------------------
+  # The laptop's SUPER+Return / E / W / C.
+  - commands: ['shell-exec wt']
+    bindings: ['lwin+enter']
+  - commands: ['shell-exec explorer']
+    bindings: ['lwin+e']
+  - commands: ['shell-exec firefox']
+    bindings: ['lwin+w']                    # SUPER+W on the laptop is Firefox too.
+                                            # If firefox is not on PATH, use the
+                                            # full path instead, e.g.
+                                            # shell-exec "C:/Program Files/Mozilla Firefox/firefox.exe"
+  - commands: ['shell-exec calc']
+    bindings: ['lwin+c']
+
+  # -- Workspaces -------------------------------------------------------------
+  - commands: ['focus --next-active-workspace']
+    bindings: ['lwin+s']
+  - commands: ['focus --prev-active-workspace']
+    bindings: ['lwin+a']
+  - commands: ['focus --recent-workspace']
+    bindings: ['lwin+oem_3']                # the ` / ~ key; lwin+d is "show desktop"
+
+  # lwin+ctrl+<arrow> is deliberately NOT bound: those are Windows' own
+  # virtual-desktop switches and go unused here. The laptop's
+  # SUPER+CTRL+<arrow> (adjacent workspace) therefore has no counterpart --
+  # lwin+a / lwin+s cover prev/next active workspace instead.
+  - commands: ['move --workspace prev']
+    bindings: ['lwin+ctrl+shift+left']      # SUPER+CTRL+SHIFT+<arrow>
+  - commands: ['move --workspace next']
+    bindings: ['lwin+ctrl+shift+right']
+
+  # Move the whole workspace to another monitor.
+  - commands: ['move-workspace --direction left']
+    bindings: ['lwin+shift+a']
+  - commands: ['move-workspace --direction right']
+    bindings: ['lwin+shift+f']
+  - commands: ['move-workspace --direction up']
+    bindings: ['lwin+shift+d']
+  - commands: ['move-workspace --direction down']
+    bindings: ['lwin+shift+s']
+
+  # The gaming workspace: SUPER+G / SUPER+SHIFT+G on the laptop.
+  - commands: ['focus --workspace gaming']
+    bindings: ['lwin+g']
+  - commands: ['move --workspace gaming', 'focus --workspace gaming']
+    bindings: ['lwin+shift+g']
+
+  - commands: ['focus --workspace 1']
+    bindings: ['lwin+1']
+  - commands: ['move --workspace 1', 'focus --workspace 1']
+    bindings: ['lwin+shift+1']
+  - commands: ['focus --workspace 2']
+    bindings: ['lwin+2']
+  - commands: ['move --workspace 2', 'focus --workspace 2']
+    bindings: ['lwin+shift+2']
+  - commands: ['focus --workspace 3']
+    bindings: ['lwin+3']
+  - commands: ['move --workspace 3', 'focus --workspace 3']
+    bindings: ['lwin+shift+3']
+  - commands: ['focus --workspace 4']
+    bindings: ['lwin+4']
+  - commands: ['move --workspace 4', 'focus --workspace 4']
+    bindings: ['lwin+shift+4']
+  - commands: ['focus --workspace 5']
+    bindings: ['lwin+5']
+  - commands: ['move --workspace 5', 'focus --workspace 5']
+    bindings: ['lwin+shift+5']
+  - commands: ['focus --workspace 6']
+    bindings: ['lwin+6']
+  - commands: ['move --workspace 6', 'focus --workspace 6']
+    bindings: ['lwin+shift+6']
+  - commands: ['focus --workspace 7']
+    bindings: ['lwin+7']
+  - commands: ['move --workspace 7', 'focus --workspace 7']
+    bindings: ['lwin+shift+7']
+  - commands: ['focus --workspace 8']
+    bindings: ['lwin+8']
+  - commands: ['move --workspace 8', 'focus --workspace 8']
+    bindings: ['lwin+shift+8']
+  - commands: ['focus --workspace 9']
+    bindings: ['lwin+9']
+  - commands: ['move --workspace 9', 'focus --workspace 9']
+    bindings: ['lwin+shift+9']

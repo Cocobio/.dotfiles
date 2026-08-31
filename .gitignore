@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 
 kitty/themes/*
+
+# Hidden files
+.*

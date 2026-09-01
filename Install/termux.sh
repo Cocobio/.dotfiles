@@ -1,174 +1,166 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# Termux setup: the terminal half of this system, as close as Android allows.
+# Safe to re-run.
+#
+# Matches the CachyOS laptop where it makes sense -- same shell, same prompt,
+# same aliases, same tmux, same fonts, same bat/fastfetch theming. Everything
+# Wayland (hyprland, waybar, noctalia, hyprlock) obviously has no counterpart.
+set -u
 
-# update & upgrade the pkg manager
+pkgi() { pkg install -y "$@"; }
+
+# Symlink $HOME/$2 -> ~/.dotfiles/$1, moving any existing real file aside first.
+# Same helper as cashyos.sh, and for the same reason: the old script wrote
+# `ln -s .dotfiles/.tmux.conf .tmux.conf` with no guard, so a re-run failed once
+# the link already existed.
+link() {
+    src="$HOME/.dotfiles/$1"; dst="$HOME/$2"
+    [ -e "$src" ] || { echo "skip: $src not in the repo"; return 0; }
+    if [ -L "$dst" ]; then rm -f "$dst"
+    elif [ -e "$dst" ]; then mv -- "$dst" "$dst-old-$(date +%Y%m%d%H%M%S)"; fi
+    mkdir -p -- "$(dirname -- "$dst")"
+    ln -s -- "$src" "$dst"
+    echo "linked $dst -> $src"
+}
+
 termux-change-repo
-pkg update -y
-pkg upgrade -y
-
-# Give termux access to files
-[ ! -d "storage" ] && termux-setup-storage
-
+pkg update -y && pkg upgrade -y
+[ -d "$HOME/storage" ] || termux-setup-storage
 
 #-------------------------------------#
-#       Install necessary pkgs
+#            Packages
 #-------------------------------------#
-local packages="git openssh wget ninja htop zsh unrar man termux-api ffmepg fzf megacmd termux-api lf libusb eza bat tree tectonic libqrencode pandoc cronie yazi"
-
-for package in $packages; do
-    pkg install $package -y
-done
-
-apt-get install llvm
-
-cargo install --locked presenterm
-cargo install --locked typst-cli
+# `local packages=...` was invalid here -- local outside a function -- and
+# "ffmepg" was misspelled, so ffmpeg was never actually installed.
+pkgi git openssh wget curl man tree unrar libqrencode
+pkgi zsh tmux fzf bat eza yazi lf ripgrep fd jq
+pkgi neovim nodejs
+pkgi htop ninja llvm rust rust-analyzer
+pkgi termux-api megacmd cronie libusb ffmpeg pandoc tectonic
+pkgi fastfetch                 # zshrc prints it on a new interactive terminal
+pkgi asciinema agg
 
 #-------------------------------------#
-#       Clone or update dotfiles
+#         Clone or update dotfiles
 #-------------------------------------#
-echo "Configuring .dotfiles!"
-sleep 3
-
-cd
-if [ ! -d ".dotfiles" ]
-then
+cd "$HOME" || exit 1
+if [ ! -d .dotfiles ]; then
     git clone https://github.com/Cocobio/.dotfiles
 else
-    cd .dotfiles
-    git pull origin
-    cd
+    git -C .dotfiles pull --ff-only origin || echo "warn: dotfiles pull failed, continuing"
 fi
 
 #-------------------------------------#
-#     Asciinema and Asciinema gif
-#            generator
+#         Fonts + agg
 #-------------------------------------#
-mkdir -p ~/.local/share/fonts
-cd ~/.local/share/fonts
-wget https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/CascadiaCode.zip
-unzip CascadiaCode.zip
-rm CascadiaCode.zip LICENSE readme.md
+# CaskaydiaCove Nerd Font Mono: the terminal font, and the one the agg alias
+# asks for. v3 matters -- the tmux and kitty configs use Material Design glyphs
+# at U+F0000+, which only exist in Nerd Fonts v3.
+mkdir -p "$HOME/.local/share/fonts"
+if [ ! -f "$HOME/.local/share/fonts/CaskaydiaCoveNerdFontMono-Regular.ttf" ]; then
+    (
+        cd "$HOME/.local/share/fonts" || exit 1
+        wget -q https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/CascadiaCode.zip
+        unzip -o CascadiaCode.zip >/dev/null
+        rm -f CascadiaCode.zip LICENSE readme.md
+    )
+fi
+mkdir -p "$HOME/.termux"
+ln -sf "$HOME/.local/share/fonts/CaskaydiaCoveNerdFontMono-Regular.ttf" "$HOME/.termux/font.ttf"
+ln -sf "$HOME/.dotfiles/Install/termux.colors.properties" "$HOME/.termux/colors.properties"
 
-pkg install asciinema -y
-pkg install agg -y
+# zsh.alias asks for --font-dir ~/.config/agg/fonts and deliberately knows
+# nothing about where fonts really live; this link is what resolves it. On the
+# laptop the same link points at /usr/share/fonts/TTF.
+mkdir -p "$HOME/.config/agg"
+ln -sfn "$HOME/.local/share/fonts" "$HOME/.config/agg/fonts"
 
 #-------------------------------------#
-#     Setup of MonoSize Nerd Font
-#     and Catpuccino Color Theme
+#              bat theme
 #-------------------------------------#
-ln -s ~/.local/share/fonts/CaskaydiaCoveNerdFontMono-Regular.ttf ~/.termux/font.ttf
-ln -s ~/.dotfiles/Install/termux.colors.properties ~/.termux/colors.properties
-
-# Setup of bat colors
 mkdir -p "$(bat --config-dir)/themes"
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
+[ -f "$(bat --config-dir)/themes/Catppuccin Mocha.tmTheme" ] || \
+    wget -qP "$(bat --config-dir)/themes" \
+        'https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme'
 bat cache --build
+mkdir -p "$HOME/.config/bat"
+echo '--theme="Catppuccin Mocha"' > "$HOME/.config/bat/config"
 
 #-------------------------------------#
-#            Setup neovim
+#           Zsh environment
 #-------------------------------------#
-# Install only if not already install
-[ ! -x "$(command -v nvim)" ] && pkg install neovim -y
-
-cd
-[ ! -d ".config" ] && echo "Creating .config" && mkdir .config
-
-if [ ! -d ".local/share/nvim/site/pack/packer/start/packer.nvim" ]; then
-    git clone --depth 1 https://github.com/wbthomason/packer.nvim ~/.local/share/nvim/site/pack/packer/start/packer.nvim
-fi
-
-if [ ! -d ".config/nvim" ]; then
-    echo "Creating symbolic link to nvim config..."
-elif [ ! -L ".config/nvim" ]; then
-    echo "Renaming current nvim config..."
-    mv ~/.config/nvim ~/.config/nvim_old
-else
-    echo "Renewing the existing symbolic link to nvim config..."
-    rm ~/.config/nvim
-fi
-sleep 3
-ln -s ~/.dotfiles/nvim/ ~/.config/nvim
-
-# Install plugins
-nvim --headless -c 'so ~/.config/nvim/lua/cocobio/packer.lua' -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
-
-# Making neovim default code editor
-# ln -s /data/data/com.termux/files/usr/bin/nvim ~/bin/termux-file-editor
-
-#-------------------------------------#
-#    Setup of Dev enviroment
-#-------------------------------------#
-# Install python and packages
-python_packages="python3 python-numpy patchelf matplotlib tur-repo python-scipy python-pandas opencv-python nodejs python-pygame python-cryptography"
-for py_package in $python_packages; do
-    pkg install $py_package -y
+# zsh/zshrc sources CachyOS's shell config when present and falls back to
+# zsh/zsh.baseline otherwise. The baseline can only source what exists, so the
+# pieces CachyOS ships as packages are installed by hand here: oh-my-zsh,
+# powerlevel10k, and the three plugins.
+[ -d "$HOME/.oh-my-zsh" ] || \
+    git clone --depth 1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
+[ -d "$HOME/.powerlevel10k" ] || \
+    git clone --depth 1 https://github.com/romkatv/powerlevel10k.git "$HOME/.powerlevel10k"
+mkdir -p "$HOME/.zsh/plugins"
+for p in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
+    [ -d "$HOME/.zsh/plugins/$p" ] || \
+        git clone --depth 1 "https://github.com/zsh-users/$p" "$HOME/.zsh/plugins/$p"
 done
 
-# Install pyright ls
-nvim --headless +"MasonInstall pyright" +qall
-
-# Lisp
-pkg install ecl -y
-
-# Haskell
-# pkg install getconf -y
-# curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
-# No language server T.T
-# pkg install ghc -y
-
-# Lua 5.4
-pkg install lua54 -y
-pkg install lua-language-server -y
-
-# Bash language server
-nvim --headless +"MasonInstall bash-language-server" +qall
-
-# ESPTool & Rust
-pkg install rust -y
-pkg install rust-analyzer -y
-pip install esptool
+#-------------------------------------#
+#          Tmux & plugins
+#-------------------------------------#
+mkdir -p "$HOME/.tmux/plugins"
+for p in tpm tmux-sensible tmux-resurrect tmux-continuum; do
+    [ -d "$HOME/.tmux/plugins/$p" ] || \
+        git clone --depth 1 "https://github.com/tmux-plugins/$p" "$HOME/.tmux/plugins/$p"
+done
 
 #-------------------------------------#
-#         Tmux & plugins
+#              Neovim
 #-------------------------------------#
-pkg install tmux -y
-mkdir -p ~/.tmux/plugins
-
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-git clone https://github.com/tmux-plugins/tmux-sensible ~/.tmux/plugins/tmux-sensible
-git clone https://github.com/tmux-plugins/tmux-resurrect ~/.tmux/plugins/tmux-resurrect
-git clone https://github.com/tmux-plugins/tmux-continuum ~/.tmux/plugins/tmux-continuum
+# The personalised LazyVim config lives in the repo now (nvim/), so it is linked
+# like everything else. nvim.bak/ is the old packer config and is not used.
+link nvim .config/nvim
 
 #-------------------------------------#
-#       Creation of symlinks
+#           Dotfile links
 #-------------------------------------#
-cd
-echo "Creating symlinks, aliases, etc"
-sleep 3
+# Paths follow the current repo layout: tmux/tmux.conf and zsh/* (the old script
+# pointed at .dotfiles/.tmux.conf and .dotfiles/.zshrc, which no longer exist).
+link tmux/tmux.conf   .tmux.conf
 
-# Tmux
-[ -f ".tmux.conf" ] && echo "tmux.conf found, renaming" && mv .tmux.conf .tmux.conf-old
-ln -s .dotfiles/.tmux.conf .tmux.conf
+# tmux.conf calls these five by absolute path ($HOME/.local/bin/...): the alert
+# logger and viewer, the session tree, pane-to-window, and the resurrect image
+# stripper. They live beside tmux.conf in the repo, so they are linked rather
+# than duplicated. Without them the config loads but its alert pill, prefix+N
+# viewer and prefix+M-<n> moves all fail silently.
+for h in tmux-alert-log tmux-alerts tmux-pane-to tmux-tree tmux-resurrect-strip-images; do
+    link "tmux/$h" ".local/bin/$h"
+done
+link zsh/zshrc        .zshrc
+link zsh/zsh.utils    .zsh.utils
+link zsh/zsh.alias    .zsh.alias
+link zsh/zsh.baseline .zsh.baseline
+link zsh/p10k.zsh     .p10k.zsh
+link .bashrc.alias    .bashrc.alias
+link .gitconfig       .gitconfig
 
-[ -f ".zshrc" ] && echo "zshrc found, renaming." && mv .zshrc .zshrc-old
-ln -s .dotfiles/.zshrc .zshrc
+#-------------------------------------#
+#          Python / dev
+#-------------------------------------#
+pkgi python tur-repo
+pkgi python-numpy python-scipy python-pandas matplotlib opencv-python \
+     python-pygame python-cryptography patchelf
+pkgi lua54 lua-language-server ecl
+pip install --upgrade esptool
 
 #-------------------------------------#
-#       Graphical interface
+#        Graphical (VNC) - optional
 #-------------------------------------#
-pkg install x11-repo -y
-pkg install tigervnc -y
+pkgi x11-repo
+pkgi tigervnc
 
 #-------------------------------------#
-#         Zsh as default
+#            Zsh as default
 #-------------------------------------#
-chsh -s zsh
-cd
-mkdir -p .zsh/plugins
-cd .zsh/plugins
-git clone https://github.com/zsh-users/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
-git clone https://github.com/zsh-users/zsh-completions.git
-#-------------------------------------#
+[ "$(basename "${SHELL:-}")" = zsh ] || chsh -s zsh
 
 termux-reload-settings
+echo "done. restart Termux for the font, colours and shell to take effect."

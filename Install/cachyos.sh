@@ -114,6 +114,15 @@ fi
 #  Dotfile links
 #-------------------------------------#
 link tmux/tmux.conf   .tmux.conf
+
+# tmux.conf calls these five by absolute path ($HOME/.local/bin/...): the alert
+# logger and viewer, the session tree, pane-to-window, and the resurrect image
+# stripper. They live beside tmux.conf in the repo, so they are linked rather
+# than duplicated. Without them the config loads but its alert pill, prefix+N
+# viewer and prefix+M-<n> moves all fail silently.
+for h in tmux-alert-log tmux-alerts tmux-pane-to tmux-tree tmux-resurrect-strip-images; do
+    link "tmux/$h" ".local/bin/$h"
+done
 link kitty            .config/kitty
 link fastfetch        .config/fastfetch
 link .gitconfig       .gitconfig
@@ -127,10 +136,10 @@ link waybar           .config/waybar
 link local-bin        .local/bin
 link noctalia-greeter .config/noctalia-greeter
 
-# ~/.config/nvim is NOT linked: the nvim/ in this repo is the OLD hand-rolled
-# config, superseded by a personalised LazyVim setup that has not been committed
-# here yet.
-# link nvim           .config/nvim
+# The personalised LazyVim config, now committed here (the old hand-rolled one
+# is nvim.bak/). lazy-lock.json comes with it, so a fresh machine gets the same
+# plugin revisions rather than whatever is newest.
+link nvim             .config/nvim
 
 #-------------------------------------#
 #  Zsh
